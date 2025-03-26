@@ -13,8 +13,42 @@ import warnings
 import json
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from datetime import datetime
+from dotenv import load_dotenv
 
 warnings.filterwarnings("ignore", category=UserWarning, module='urllib3')
+
+# Load environment variables
+load_dotenv()
+
+# Database configuration
+DATABASE_URL = f"mysql+mysqlconnector://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# Database Models
+class Prediction(Base):
+    __tablename__ = "predictions"
+    id = Column(Integer, primary_key=True, index=True)
+    predicted_disease = Column(String(100), nullable=False)
+    confidence = Column(Float, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+class Retraining(Base):
+    __tablename__ = "retrainings"
+    id = Column(Integer, primary_key=True, index=True)
+    num_classes = Column(Integer, nullable=False)
+    training_accuracy = Column(Float)
+    validation_accuracy = Column(Float, nullable=True)
+    class_metrics = Column(Text)  # Store JSON string
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+# Create tables
+Base.metadata.create_all(bind=engine)
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -51,14 +85,27 @@ def preprocess_image(img_bytes: bytes):
     img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 @app.post("/predict")
-async def predict(file: UploadFile = File(...)):
+async def predict(file: UploadFile = File(...), db: SessionLocal = Depends(get_db)):
     img_bytes = await file.read()
     img = preprocess_image(img_bytes)
     predictions = model.predict(img)
     predicted_index = np.argmax(predictions, axis=1)[0]
     confidence = np.max(predictions)
     disease = CLASS_NAMES[predicted_index]
+    
+    # Save prediction to database
+    prediction = Prediction(predicted_disease=disease, confidence=float(confidence))
+    db.add(prediction)
+    db.commit()
+    
     return JSONResponse(content={"predicted_disease": disease, "confidence": float(confidence)})
 
 def extract_zip(zip_path, extract_to):
@@ -68,7 +115,6 @@ def extract_zip(zip_path, extract_to):
 
 def save_visualizations(y_true, y_pred_classes, target_names):
     """Save classification report and confusion matrix as PNG files."""
-    # Create classification report visualization
     class_report = classification_report(y_true, y_pred_classes, target_names=target_names)
     
     plt.figure(figsize=(10, len(target_names) * 0.5 + 2))
@@ -79,7 +125,6 @@ def save_visualizations(y_true, y_pred_classes, target_names):
                 bbox_inches='tight', dpi=300)
     plt.close()
 
-    # Create confusion matrix visualization
     cm = confusion_matrix(y_true, y_pred_classes)
     plt.figure(figsize=(max(10, len(target_names)), max(10, len(target_names))))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
@@ -95,7 +140,10 @@ def save_visualizations(y_true, y_pred_classes, target_names):
     plt.close()
 
 @app.post("/retrain")
-async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.0001, epochs: int = 10):
+async def retrain(files: List[UploadFile] = File(...), 
+                 learning_rate: float = 0.0001, 
+                 epochs: int = 10,
+                 db: SessionLocal = Depends(get_db)):
     global model, CLASS_NAMES
     
     new_data_dir = os.path.join(UPLOAD_DIR, "new_data")
@@ -156,7 +204,7 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
             except Exception as e:
                 print(f"Error processing {img_path}: {str(e)}")
         
-        # 3. Filter classes with sufficient data (at least 2 images)
+        # 3. Filter classes with sufficient data
         class_counts = {}
         for class_dir in os.listdir(new_data_dir):
             class_path = os.path.join(new_data_dir, class_dir)
@@ -177,7 +225,7 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
         
         print(f"Class counts: {class_counts}")
         
-        # 4. Create data generators with all valid classes
+        # 4. Create data generators
         target_names = list(class_counts.keys())
         all_classes = list(set(CLASS_NAMES + target_names))
         use_validation = all(count >= 4 for count in class_counts.values())
@@ -232,13 +280,11 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
         model.save(temp_model_path)
         working_model = tf.keras.models.load_model(temp_model_path)
         
-        # Freeze 98% of layers
         num_layers = len(working_model.layers)
         freeze_until = int(num_layers * 0.98)
         for i, layer in enumerate(working_model.layers):
             layer.trainable = i >= freeze_until
         
-        # Fine-tune directly on all classes
         working_model.compile(
             optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
             loss='categorical_crossentropy',
@@ -260,7 +306,7 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
             )
         ]
         
-        # 7. Train the model on new data
+        # 7. Train the model
         if use_validation:
             history = working_model.fit(
                 train_generator,
@@ -300,17 +346,16 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
         # 9. Save visualizations
         save_visualizations(y_true, y_pred_classes, target_names)
         
-        # 10. Save the fine-tuned model and update in-memory model
+        # 10. Save the fine-tuned model
         fine_tuned_model_path = os.path.join(os.path.dirname(MODEL_PATH), "plant_disease_model.keras")
         working_model.save(fine_tuned_model_path)
         model = tf.keras.models.load_model(fine_tuned_model_path)
         
-        # Update global CLASS_NAMES
         CLASS_NAMES = all_classes
         with open(os.path.join(os.path.dirname(MODEL_PATH), "class_names.json"), "w") as f:
             json.dump(CLASS_NAMES, f)
         
-        # Prepare detailed class metrics
+        # 11. Prepare metrics and save to database
         class_metrics = {}
         for class_name in target_names:
             if class_name in class_report:
@@ -323,23 +368,37 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
         
         new_classes_added = [cls for cls in target_names if cls not in CLASS_NAMES]
         
-        # Prepare response
+        training_accuracy = float(history.history['accuracy'][-1]) if 'accuracy' in history.history else None
+        validation_accuracy = float(history.history['val_accuracy'][-1]) if use_validation and 'val_accuracy' in history.history else None
+        
+        # Save retraining data to database
+        retraining = Retraining(
+            num_classes=len(CLASS_NAMES),
+            training_accuracy=training_accuracy,
+            validation_accuracy=validation_accuracy,
+            class_metrics=json.dumps(class_metrics)
+        )
+        db.add(retraining)
+        db.commit()
+        
+        # 12. Prepare response
         response_content = {
             "message": "Model fine-tuning successful with preserved knowledge!",
             "num_classes": len(CLASS_NAMES),
             "new_classes_added": new_classes_added,
             "class_counts": class_counts,
-            "training_accuracy": float(history.history['accuracy'][-1]) if 'accuracy' in history.history else None,
+            "training_accuracy": training_accuracy,
             "class_metrics": class_metrics,
             "fine_tuned_model_path": fine_tuned_model_path,
             "visualization_files": {
                 "classification_report": os.path.join(VISUALIZATION_DIR, "classification_report.png"),
                 "confusion_matrix": os.path.join(VISUALIZATION_DIR, "confusion_matrix.png")
-            }
+            },
+            "retraining_id": retraining.id
         }
         
         if use_validation:
-            response_content["validation_accuracy"] = float(history.history['val_accuracy'][-1]) if 'val_accuracy' in history.history else None
+            response_content["validation_accuracy"] = validation_accuracy
         
         return JSONResponse(content=response_content)
         
@@ -363,3 +422,19 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Plant Disease Prediction API!"}
+
+# Optional: Add endpoint to get prediction history
+@app.get("/prediction_history")
+async def get_prediction_history(db: SessionLocal = Depends(get_db)):
+    predictions = db.query(Prediction).order_by(Prediction.timestamp.desc()).all()
+    return [{"id": p.id, "disease": p.predicted_disease, "confidence": p.confidence, "timestamp": p.timestamp.isoformat()} 
+            for p in predictions]
+
+# Optional: Add endpoint to get retraining history
+@app.get("/retraining_history")
+async def get_retraining_history(db: SessionLocal = Depends(get_db)):
+    retrainings = db.query(Retraining).order_by(Retraining.timestamp.desc()).all()
+    return [{"id": r.id, "num_classes": r.num_classes, "training_accuracy": r.training_accuracy,
+             "validation_accuracy": r.validation_accuracy, "class_metrics": json.loads(r.class_metrics),
+             "timestamp": r.timestamp.isoformat()} 
+            for r in retrainings]
