@@ -18,16 +18,26 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 warnings.filterwarnings("ignore", category=UserWarning, module='urllib3')
 
 # Load environment variables
 load_dotenv()
 
-# Database configuration
-DATABASE_URL = f"mysql+mysqlconnector://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
+# Get database URL from environment variables
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Ensure the correct dialect for SQLAlchemy
+DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+mysqlconnector://", 1)
+
+# SQLAlchemy Engine & Session
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Base Class
 Base = declarative_base()
 
 # Database Models
