@@ -2,25 +2,38 @@ import os
 import shutil
 import zipfile
 import io
+import json
+import warnings
+from datetime import datetime
+from typing import List
+
 import numpy as np
 import tensorflow as tf
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends  # Added Depends import
-from fastapi.responses import JSONResponse
-from typing import List
-from tensorflow.keras.preprocessing import image
-from sklearn.metrics import classification_report, confusion_matrix
-import warnings
-import json
 import matplotlib.pyplot as plt
 import seaborn as sns
+from tensorflow.keras.preprocessing import image
+from sklearn.metrics import classification_report, confusion_matrix
+
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi.responses import JSONResponse
+
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
+
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+
+# Load environment variables
+load_dotenv()
+
+# Database setup
+DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+mysqlconnector://", 1)
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
 
 warnings.filterwarnings("ignore", category=UserWarning, module='urllib3')
 
