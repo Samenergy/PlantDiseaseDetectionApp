@@ -8,9 +8,11 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from typing import List
 from tensorflow.keras.preprocessing import image
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix
 import warnings
 import json
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 warnings.filterwarnings("ignore", category=UserWarning, module='urllib3')
 
@@ -18,7 +20,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module='urllib3')
 app = FastAPI()
 
 # Load the trained model
-MODEL_PATH = "/Users/samenergy/Documents/Projects/PlantDiseaseDetection/models/plant_disease_model.keras"
+MODEL_PATH = "../models/plant_disease_model.keras"
 model = tf.keras.models.load_model(MODEL_PATH)
 
 # Define initial class names for plant diseases
@@ -38,7 +40,9 @@ CLASS_NAMES = [
 ]
 
 UPLOAD_DIR = "Data"
+VISUALIZATION_DIR = "visualizations"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(VISUALIZATION_DIR, exist_ok=True)
 
 def preprocess_image(img_bytes: bytes):
     """Preprocess image for prediction."""
@@ -61,6 +65,34 @@ def extract_zip(zip_path, extract_to):
     """Extract ZIP files."""
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(extract_to)
+
+def save_visualizations(y_true, y_pred_classes, target_names):
+    """Save classification report and confusion matrix as PNG files."""
+    # Create classification report visualization
+    class_report = classification_report(y_true, y_pred_classes, target_names=target_names)
+    
+    plt.figure(figsize=(10, len(target_names) * 0.5 + 2))
+    plt.text(0.01, 0.99, class_report, {'fontsize': 10}, fontfamily='monospace')
+    plt.axis('off')
+    plt.title("Classification Report")
+    plt.savefig(os.path.join(VISUALIZATION_DIR, "classification_report.png"), 
+                bbox_inches='tight', dpi=300)
+    plt.close()
+
+    # Create confusion matrix visualization
+    cm = confusion_matrix(y_true, y_pred_classes)
+    plt.figure(figsize=(max(10, len(target_names)), max(10, len(target_names))))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=target_names, yticklabels=target_names)
+    plt.title("Confusion Matrix")
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
+    plt.xticks(rotation=45, ha='right')
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+    plt.savefig(os.path.join(VISUALIZATION_DIR, "confusion_matrix.png"), 
+                bbox_inches='tight', dpi=300)
+    plt.close()
 
 @app.post("/retrain")
 async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.0001, epochs: int = 10):
@@ -147,7 +179,7 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
         
         # 4. Create data generators with all valid classes
         target_names = list(class_counts.keys())
-        all_classes = list(set(CLASS_NAMES + target_names))  # Combine all classes early
+        all_classes = list(set(CLASS_NAMES + target_names))
         use_validation = all(count >= 4 for count in class_counts.values())
         
         if use_validation:
@@ -164,7 +196,7 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
                 target_size=(128, 128),
                 batch_size=32,
                 class_mode='categorical',
-                classes=all_classes,  # Use all classes
+                classes=all_classes,
                 subset='training',
                 shuffle=True
             )
@@ -173,7 +205,7 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
                 target_size=(128, 128),
                 batch_size=32,
                 class_mode='categorical',
-                classes=all_classes,  # Use all classes
+                classes=all_classes,
                 subset='validation',
                 shuffle=False
             )
@@ -190,7 +222,7 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
                 target_size=(128, 128),
                 batch_size=32,
                 class_mode='categorical',
-                classes=all_classes,  # Use all classes
+                classes=all_classes,
                 shuffle=True
             )
             validation_generator = None
@@ -246,7 +278,7 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
                 steps_per_epoch=max(1, len(train_generator))
             )
         
-        # 8. Generate classification report
+        # 8. Generate classification report and predictions
         if use_validation:
             validation_generator.reset()
             y_pred = working_model.predict(validation_generator)
@@ -265,7 +297,10 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
             output_dict=True
         )
         
-        # 9. Save the fine-tuned model and update in-memory model
+        # 9. Save visualizations
+        save_visualizations(y_true, y_pred_classes, target_names)
+        
+        # 10. Save the fine-tuned model and update in-memory model
         fine_tuned_model_path = os.path.join(os.path.dirname(MODEL_PATH), "plant_disease_model.keras")
         working_model.save(fine_tuned_model_path)
         model = tf.keras.models.load_model(fine_tuned_model_path)
@@ -296,7 +331,11 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
             "class_counts": class_counts,
             "training_accuracy": float(history.history['accuracy'][-1]) if 'accuracy' in history.history else None,
             "class_metrics": class_metrics,
-            "fine_tuned_model_path": fine_tuned_model_path
+            "fine_tuned_model_path": fine_tuned_model_path,
+            "visualization_files": {
+                "classification_report": os.path.join(VISUALIZATION_DIR, "classification_report.png"),
+                "confusion_matrix": os.path.join(VISUALIZATION_DIR, "confusion_matrix.png")
+            }
         }
         
         if use_validation:
@@ -324,4 +363,3 @@ async def retrain(files: List[UploadFile] = File(...), learning_rate: float = 0.
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Plant Disease Prediction API!"}
-
