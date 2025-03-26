@@ -4,7 +4,7 @@ import zipfile
 import io
 import numpy as np
 import tensorflow as tf
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends  # Added Depends import
 from fastapi.responses import JSONResponse
 from typing import List
 from tensorflow.keras.preprocessing import image
@@ -423,14 +423,12 @@ async def retrain(files: List[UploadFile] = File(...),
 def read_root():
     return {"message": "Welcome to the Plant Disease Prediction API!"}
 
-# Optional: Add endpoint to get prediction history
 @app.get("/prediction_history")
 async def get_prediction_history(db: SessionLocal = Depends(get_db)):
     predictions = db.query(Prediction).order_by(Prediction.timestamp.desc()).all()
     return [{"id": p.id, "disease": p.predicted_disease, "confidence": p.confidence, "timestamp": p.timestamp.isoformat()} 
             for p in predictions]
 
-# Optional: Add endpoint to get retraining history
 @app.get("/retraining_history")
 async def get_retraining_history(db: SessionLocal = Depends(get_db)):
     retrainings = db.query(Retraining).order_by(Retraining.timestamp.desc()).all()
