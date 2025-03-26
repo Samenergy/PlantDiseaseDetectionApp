@@ -1,8 +1,10 @@
 fastapi
 uvicorn
-python-multipart
 tensorflow
 numpy
+matplotlib
+seaborn
+scikit-learn
+python-multipart
 sqlalchemy
 python-dotenv
-mysql-connector-python
