@@ -43,6 +43,12 @@ const Login: React.FC = () => {
     }
   };
 
+  // Function to fill demo credentials
+  const fillDemoCredentials = () => {
+    setEmail("demo@example.com");
+    setPassword("Password123!");
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900">
       <div className="flex rounded-2xl shadow-lg max-w-5xl w-full">
@@ -52,7 +58,7 @@ const Login: React.FC = () => {
           <p className="text-gray-400 text-lg mb-8">Login to continue your gardening journey</p>
 
           {error && (
-            <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-6">
+            <div className="bg-red-100 text-red-700 themep-4 rounded-lg mb-6">
               {error}
             </div>
           )}
@@ -118,9 +124,18 @@ const Login: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 text-lg font-medium"
+              className="w-full py-3 px-4 bg-green-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 text-lg font-medium"
             >
               {isLoading ? "Logging in..." : "LOGIN"}
+            </button>
+
+            {/* Demo Credentials Button with Animation */}
+            <button
+              type="button"
+              onClick={fillDemoCredentials}
+              className="w-full py-3 px-4 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 text-lg font-medium animate-bounce"
+            >
+              Fill Demo Credentials
             </button>
           </form>
 
