@@ -1,6 +1,6 @@
 import React, { useState, ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaLeaf, FaSync, FaHistory, FaSignOutAlt } from "react-icons/fa";
+import { FaLeaf, FaSync, FaHistory, FaSignOutAlt, FaArrowLeft } from "react-icons/fa";
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -10,6 +10,10 @@ const Dashboard: React.FC = () => {
   const [predictionHistory, setPredictionHistory] = useState<{ id: number; text: string; date: string }[]>([]);
   const [retrainHistory, setRetrainHistory] = useState<{ id: number; text: string; date: string }[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+
+  // Toggle sidebar collapse
+  const toggleSidebar = () => setIsSidebarCollapsed((prev) => !prev);
 
   // Handle image upload with simulated processing
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -17,7 +21,7 @@ const Dashboard: React.FC = () => {
     if (file) {
       setLeafImage(file);
       setIsProcessing(true);
-      await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       const prediction = {
         id: Date.now(),
         text: `Predicted disease for ${file.name}: Healthy`,
@@ -34,7 +38,7 @@ const Dashboard: React.FC = () => {
     if (file) {
       setZipFile(file);
       setIsProcessing(true);
-      await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulate longer API delay
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       const retrainLog = {
         id: Date.now(),
         text: `Model retrained with ${file.name}`,
@@ -54,11 +58,25 @@ const Dashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-800 shadow-2xl p-6 flex flex-col justify-between transform transition-all duration-300 hover:w-72">
+      <aside
+        className={`bg-gray-800 shadow-2xl p-6 flex flex-col justify-between transition-all duration-300 ${
+          isSidebarCollapsed ? "w-24" : "w-64 "
+        }`}
+      >
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight mb-10 text-green-400">
-            GardenAI
-          </h1>
+          {/* Toggle Button and Title */}
+          <div className="flex items-center justify-between mb-10">
+            {!isSidebarCollapsed && <img src="/logo.png" alt="Logo" />}
+            <button onClick={toggleSidebar} className="text-gray-300 hover:text-[#7fd95c]">
+              {isSidebarCollapsed ? (
+                <img src="/g.png" alt="Expand" className="w-16 h-auto" />
+              ) : (
+                <FaArrowLeft size={24} />
+              )}
+            </button>
+          </div>
+
+          {/* Navigation */}
           <nav className="space-y-4">
             {[
               { id: "detect", label: "Detect Disease", icon: <FaLeaf /> },
@@ -70,28 +88,34 @@ const Dashboard: React.FC = () => {
                 onClick={() => setActiveTab(item.id)}
                 className={`w-full flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 ${
                   activeTab === item.id
-                    ? "bg-green-600 shadow-lg scale-105"
+                    ? "bg-[#25c656] shadow-lg scale-105"
                     : "bg-gray-700 hover:bg-gray-600 hover:scale-102"
-                }`}
+                } ${isSidebarCollapsed ? "justify-center" : ""}`}
+                title={isSidebarCollapsed ? item.label : undefined} // Tooltip for collapsed state
               >
                 <span className="text-xl">{item.icon}</span>
-                <span className="text-lg font-medium">{item.label}</span>
+                {!isSidebarCollapsed && <span className="text-lg font-medium">{item.label}</span>}
               </button>
             ))}
           </nav>
         </div>
+
+        {/* Logout Button */}
         <button
           onClick={handleLogout}
-          className="flex items-center space-x-3 p-3 bg-red-600 rounded-xl hover:bg-red-700 transition-all duration-200"
+          className={`flex items-center space-x-3 p-3 bg-red-600 rounded-xl hover:bg-red-700 transition-all duration-200 ${
+            isSidebarCollapsed ? "justify-center" : ""
+          }`}
+          title={isSidebarCollapsed ? "Logout" : undefined}
         >
           <FaSignOutAlt className="text-xl" />
-          <span className="text-lg font-medium">Logout</span>
+          {!isSidebarCollapsed && <span className="text-lg font-medium">Logout</span>}
         </button>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 p-8 overflow-y-auto">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-5xl">
           {/* Header */}
           <header className="mb-8">
             <h2 className="text-4xl font-bold tracking-wide animate-fade-in-down">
