@@ -4,11 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom"; // Use useNavigate from React Router
 import CountUp from "react-countup";
 
-const images = [
-  "/banner.webp",
-  "/banner-bg.webp",
-  "/banner-bg-2.webp"
-];
+const images = ["/banner.webp", "/banner-bg.webp", "/banner-bg-2.webp"];
 
 // Animation settings
 const TRANSITION_DURATION = 1000;
@@ -97,8 +93,7 @@ const Header: React.FC = () => {
         />
       ))}
 
-      {/* Overlay for light/dark mode */}
-      <div className="absolute inset-0 bg-black opacity-0"></div>
+      <div className="absolute inset-0 bg-gray-100 opacity-70 dark:bg-black dark:opacity-0"></div>
 
       {/* Content */}
       <div className="relative z-10">
@@ -123,7 +118,9 @@ const Header: React.FC = () => {
                 showDefend ? "translate-x-0" : "-translate-x-full"
               }`}
             >
-              <i className="font-light text-[#25c656] dark:text-[#25c656]">Defend</i>
+              <i className="font-light text-[#25c656] dark:text-[#25c656]">
+                Defend
+              </i>
             </div>
           </h1>
           <div
