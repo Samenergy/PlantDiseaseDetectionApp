@@ -45,44 +45,44 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900">
-      <div className="flex bg-white rounded-2xl shadow-lg max-w-4xl w-full">
+      <div className="flex rounded-2xl shadow-lg max-w-5xl w-full">
         {/* Left Side: Login Form */}
-        <div className="w-1/2 p-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome back</h2>
-          <p className="text-gray-600 mb-6">Login to continue your gardening journey</p>
+        <div className="w-1/2 p-12 bg-gray-800">
+          <h2 className="text-4xl font-bold text-white mb-3">Welcome back</h2>
+          <p className="text-gray-400 text-lg mb-8">Login to continue your gardening journey</p>
 
           {error && (
-            <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
+            <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-6">
               {error}
             </div>
           )}
 
           {/* Social Login Buttons */}
-          <div className="flex space-x-4 mb-6">
-            <button className="flex-1 flex items-center justify-center py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
-              <FcGoogle className="mr-2" size={20} />
-              Log in with Google
+          <div className="flex space-x-6 mb-8">
+            <button className="flex-1 flex items-center justify-center py-3 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700">
+              <FcGoogle className="mr-3" size={24} />
+              <span className="text-lg">Log in with Google</span>
             </button>
-            <button className="flex-1 flex items-center justify-center py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
-              <FaApple className="mr-2" size={20} />
-              Log in with Apple
+            <button className="flex-1 flex items-center justify-center py-3 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700">
+              <FaApple className="mr-3" size={24} />
+              <span className="text-lg">Log in with Apple</span>
             </button>
           </div>
 
           {/* Divider */}
-          <div className="relative mb-6">
+          <div className="relative mb-8">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
+              <div className="w-full border-t border-gray-600"></div>
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">OR</span>
+            <div className="relative flex justify-center text-base">
+              <span className="px-3 bg-gray-800 text-gray-400">OR</span>
             </div>
           </div>
 
           {/* Email and Password Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-base font-medium text-gray-300">
                 Email Address
               </label>
               <input
@@ -90,7 +90,7 @@ const Login: React.FC = () => {
                 id="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                className="mt-2 block w-full px-4 py-3 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 bg-gray-700 text-white text-lg placeholder-gray-400"
                 placeholder="hello@yourcompany.com"
                 required
               />
@@ -98,10 +98,10 @@ const Login: React.FC = () => {
 
             <div>
               <div className="flex justify-between">
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="password" className="block text-base font-medium text-gray-300">
                   Password
                 </label>
-                <a href="/forgot-password" className="text-sm text-gray-500 hover:text-gray-700">
+                <a href="/forgot-password" className="text-base text-gray-400 hover:text-gray-200">
                   Forgot password?
                 </a>
               </div>
@@ -110,7 +110,7 @@ const Login: React.FC = () => {
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                className="mt-2 block w-full px-4 py-3 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 bg-gray-700 text-white text-lg placeholder-gray-400"
                 required
               />
             </div>
@@ -118,15 +118,15 @@ const Login: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+              className="w-full py-3 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 text-lg font-medium"
             >
               {isLoading ? "Logging in..." : "LOGIN"}
             </button>
           </form>
 
-          <p className="mt-4 text-center text-sm text-gray-600">
+          <p className="mt-6 text-center text-base text-gray-400">
             Don't have an account?{" "}
-            <a href="/signup" className="text-green-600 hover:text-green-800">
+            <a href="/signup" className="text-green-500 hover:text-green-400">
               Sign up
             </a>
           </p>
