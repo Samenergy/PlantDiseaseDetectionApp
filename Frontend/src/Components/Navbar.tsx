@@ -40,7 +40,6 @@ const Navbar: React.FC = () => {
             <Link to="/">Home</Link>
             <Link to="/detect">Detect Disease</Link>
             <Link to="/diseases">Disease Database</Link>
-            <Link to="/about">About Us</Link>
             <Link to="/contact">Contact</Link>
           </div>
         </div>
