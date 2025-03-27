@@ -5,7 +5,7 @@ import io
 import json
 import warnings
 from datetime import datetime
-from typing import List
+from typing import List, Any
 
 import numpy as np
 import tensorflow as tf
@@ -14,46 +14,48 @@ import seaborn as sns
 from tensorflow.keras.preprocessing import image
 from sklearn.metrics import classification_report, confusion_matrix
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
-
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-# Database setup
 DATABASE_URL = os.getenv("DATABASE_URL")
 DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+mysqlconnector://", 1)
-
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+# JWT Configuration
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key")  
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# OAuth2 scheme
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 warnings.filterwarnings("ignore", category=UserWarning, module='urllib3')
 
-# Load environment variables
-load_dotenv()
-
-# Get database URL from environment variables
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-# Ensure the correct dialect for SQLAlchemy
-DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+mysqlconnector://", 1)
-
-# SQLAlchemy Engine & Session
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Base Class
-Base = declarative_base()
-
 # Database Models
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
+
 class Prediction(Base):
     __tablename__ = "predictions"
     id = Column(Integer, primary_key=True, index=True)
@@ -75,6 +77,15 @@ Base.metadata.create_all(bind=engine)
 
 # Initialize FastAPI app
 app = FastAPI()
+
+# Add CORS middleware (optional, adjust origins as needed)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Load the trained model
 MODEL_PATH = "../models/plant_disease_model.keras"
@@ -101,12 +112,32 @@ VISUALIZATION_DIR = "visualizations"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(VISUALIZATION_DIR, exist_ok=True)
 
-def preprocess_image(img_bytes: bytes):
-    """Preprocess image for prediction."""
-    img = image.load_img(io.BytesIO(img_bytes), target_size=(128, 128))
-    img_array = image.img_to_array(img) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
-    return img_array
+# Pydantic models for request/response
+class UserCreate(BaseModel):
+    username: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+# Utility functions
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict):
+    from datetime import timedelta
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def get_user(db: Session, username: str):
+    return db.query(User).filter(User.username == username).first()
 
 def get_db():
     db = SessionLocal()
@@ -115,8 +146,66 @@ def get_db():
     finally:
         db.close()
 
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    user = get_user(db, username=username)
+    if user is None:
+        raise credentials_exception
+    
+    return user
+
+
+
+def preprocess_image(img_bytes: bytes):
+    """Preprocess image for prediction."""
+    img = image.load_img(io.BytesIO(img_bytes), target_size=(128, 128))
+    img_array = image.img_to_array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
+    return img_array
+
+# Authentication endpoints
+@app.post("/signup", response_model=Token)
+async def signup(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = get_user(db, username=user.username)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Username already registered")
+    hashed_password = get_password_hash(user.password)
+    new_user = User(username=user.username, hashed_password=hashed_password)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/token", response_model=Token)
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = get_user(db, username=form_data.username)
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# Protected endpoints
 @app.post("/predict")
-async def predict(file: UploadFile = File(...), db: SessionLocal = Depends(get_db)):
+async def predict(file: UploadFile = File(...), 
+                 db: Session = Depends(get_db), 
+                 current_user: User = Depends(get_current_user)):
     img_bytes = await file.read()
     img = preprocess_image(img_bytes)
     predictions = model.predict(img)
@@ -166,7 +255,8 @@ def save_visualizations(y_true, y_pred_classes, target_names):
 async def retrain(files: List[UploadFile] = File(...), 
                  learning_rate: float = 0.0001, 
                  epochs: int = 10,
-                 db: SessionLocal = Depends(get_db)):
+                 db: Session = Depends(get_db),
+                 current_user: User = Depends(get_current_user)):
     global model, CLASS_NAMES
     
     new_data_dir = os.path.join(UPLOAD_DIR, "new_data")
@@ -447,13 +537,13 @@ def read_root():
     return {"message": "Welcome to the Plant Disease Prediction API!"}
 
 @app.get("/prediction_history")
-async def get_prediction_history(db: SessionLocal = Depends(get_db)):
+async def get_prediction_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     predictions = db.query(Prediction).order_by(Prediction.timestamp.desc()).all()
     return [{"id": p.id, "disease": p.predicted_disease, "confidence": p.confidence, "timestamp": p.timestamp.isoformat()} 
             for p in predictions]
 
 @app.get("/retraining_history")
-async def get_retraining_history(db: SessionLocal = Depends(get_db)):
+async def get_retraining_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     retrainings = db.query(Retraining).order_by(Retraining.timestamp.desc()).all()
     return [{"id": r.id, "num_classes": r.num_classes, "training_accuracy": r.training_accuracy,
              "validation_accuracy": r.validation_accuracy, "class_metrics": json.loads(r.class_metrics),
