@@ -1,6 +1,5 @@
 "use client";
 import React from "react";
-import Image from "react/image";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
@@ -128,7 +127,7 @@ const TestimonialSection: React.FC = () => {
 
                   <div className="flex items-center mt-auto">
                     <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-200 rounded-full overflow-hidden mr-3 md:mr-4">
-                      <Image
+                      <img
                         src={testimonial.avatar}
                         alt={testimonial.name}
                         width={48}

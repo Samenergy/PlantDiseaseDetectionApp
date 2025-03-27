@@ -1,1 +1,14 @@
-@import "tailwindcss";
+/* Force dark mode globally */
+html {
+  background-color: #121212; /* Dark background */
+}
+
+body {
+  background-color: #121212; /* Dark background */
+  color: white; /* White text in dark mode */
+}
+
+[data-theme="dark"] {
+  background-color: #121212;
+  color: white;
+}
