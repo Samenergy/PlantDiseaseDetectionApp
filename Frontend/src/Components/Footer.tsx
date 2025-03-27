@@ -1,5 +1,6 @@
 import React from "react";
-import Link from "next/link";
+import { Link } from "react-router-dom"; 
+
 
 const Footer = () => {
   return (
@@ -20,7 +21,7 @@ const Footer = () => {
             <ul className="space-y-2">
               <li>
                 <Link
-                  href="/"
+                  to="/"
                   className="text-gray-400 hover:text-white transition-colors"
                 >
                   Home
@@ -28,7 +29,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/detect"
+                  to="/detect"
                   className="text-gray-400 hover:text-white transition-colors"
                 >
                   Detect Disease
@@ -36,7 +37,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/diseases"
+                  to="/diseases"
                   className="text-gray-400 hover:text-white transition-colors"
                 >
                   Disease Database
@@ -44,7 +45,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/about"
+                  to="/about"
                   className="text-gray-400 hover:text-white transition-colors"
                 >
                   About Us
@@ -57,7 +58,7 @@ const Footer = () => {
             <ul className="space-y-2">
               <li>
                 <Link
-                  href="/blog"
+                  to="/blog"
                   className="text-gray-400 hover:text-white transition-colors"
                 >
                   Blog
@@ -65,7 +66,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/faq"
+                  to="/faq"
                   className="text-gray-400 hover:text-white transition-colors"
                 >
                   FAQ
@@ -73,7 +74,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/privacy"
+                  to="/privacy"
                   className="text-gray-400 hover:text-white transition-colors"
                 >
                   Privacy Policy
@@ -81,7 +82,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/terms"
+                  to="/terms"
                   className="text-gray-400 hover:text-white transition-colors"
                 >
                   Terms of Service
@@ -93,7 +94,7 @@ const Footer = () => {
             <h4 className="text-lg font-bold mb-4">Contact Us</h4>
             <p className="text-gray-400 mb-2">Have questions or feedback?</p>
             <Link
-              href="/contact"
+              to="/contact"
               className="inline-block bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 transition-colors"
             >
               Get in Touch

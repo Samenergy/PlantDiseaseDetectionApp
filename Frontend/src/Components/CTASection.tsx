@@ -1,5 +1,5 @@
 import React from 'react';
-import Link from 'next/link';
+import { Link } from "react-router-dom";
 
 const CTASection = () => {
   return (
@@ -13,7 +13,7 @@ const CTASection = () => {
           plants healthy.
         </p>
         <Link
-          href="/detect"
+          to="/detect"
           className="inline-block bg-white text-green-600 font-bold py-3 px-8 rounded-full text-lg hover:bg-gray-100 transition-colors"
         >
           Detect Disease Now

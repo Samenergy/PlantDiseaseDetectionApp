@@ -1,75 +1,75 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import Image from "next/image";
+import React from "react";
+import Image from "react/image";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import { FaQuoteRight } from "react-icons/fa";
 
-const TestimonialSection = () => {
-  // Responsive slider settings
-  const sliderSettings = {
-    dots: true,
-    infinite: true,
-    speed: 500,
-    slidesToShow: 2,
-    slidesToScroll: 1,
-    autoplay: true,
-    autoplaySpeed: 3000,
-    arrows: false,
-    pauseOnHover: true,
-    responsive: [
-      {
-        breakpoint: 1024,
-        settings: {
-          slidesToShow: 2,
-          slidesToScroll: 1,
-        }
-      },
-      {
-        breakpoint: 768,
-        settings: {
-          slidesToShow: 1,
-          slidesToScroll: 1,
-        }
+// Slider settings for responsiveness
+const sliderSettings = {
+  dots: true,
+  infinite: true,
+  speed: 500,
+  slidesToShow: 2,
+  slidesToScroll: 1,
+  autoplay: true,
+  autoplaySpeed: 3000,
+  arrows: false,
+  pauseOnHover: true,
+  responsive: [
+    {
+      breakpoint: 1024,
+      settings: {
+        slidesToShow: 2,
+        slidesToScroll: 1,
       }
-    ]
-  };
+    },
+    {
+      breakpoint: 768,
+      settings: {
+        slidesToShow: 1,
+        slidesToScroll: 1,
+      }
+    }
+  ]
+};
 
-  // Testimonial data
-  const testimonials = [
-    {
-      name: "Maggie Ulrey",
-      location: "Denpasar",
-      quote:
-        "Absolutely LOVE JosieFarms! Their organic veggies are so crisp and flavorful. Knowing they're grown naturally makes me feel great about what I eat. Five stars all the way!",
-      avatar: "/3.jpg",
-    },
-    {
-      name: "Sarah Johnson",
-      location: "Home Gardener",
-      quote:
-        "LeafSense helped me save my tomato plants! I was able to identify early blight quickly and treat it before it spread to the rest of my garden.",
-      avatar: "/4.jpg",
-    },
-    {
-      name: "Michael Chen",
-      location: "Commercial Farmer",
-      quote:
-        "As a commercial farmer, early detection is crucial. LeafSense has become an essential tool for our operation, helping us reduce crop losses by over 30%.",
-      avatar: "/2.jpg",
-    },
-    {
-      name: "Emma Rodriguez",
-      location: "Agricultural Consultant",
-      quote:
-        "I recommend LeafSense to all my clients. The accuracy and detailed treatment recommendations make it stand out from other plant disease detection tools.",
-      avatar: "/1.png",
-    },
-  ];
+// Testimonial data
+const testimonials = [
+  {
+    name: "Maggie Ulrey",
+    location: "Denpasar",
+    quote:
+      "Absolutely LOVE JosieFarms! Their organic veggies are so crisp and flavorful. Knowing they're grown naturally makes me feel great about what I eat. Five stars all the way!",
+    avatar: "/3.jpg",
+  },
+  {
+    name: "Sarah Johnson",
+    location: "Home Gardener",
+    quote:
+      "LeafSense helped me save my tomato plants! I was able to identify early blight quickly and treat it before it spread to the rest of my garden.",
+    avatar: "/4.jpg",
+  },
+  {
+    name: "Michael Chen",
+    location: "Commercial Farmer",
+    quote:
+      "As a commercial farmer, early detection is crucial. LeafSense has become an essential tool for our operation, helping us reduce crop losses by over 30%.",
+    avatar: "/2.jpg",
+  },
+  {
+    name: "Emma Rodriguez",
+    location: "Agricultural Consultant",
+    quote:
+      "I recommend LeafSense to all my clients. The accuracy and detailed treatment recommendations make it stand out from other plant disease detection tools.",
+    avatar: "/1.png",
+  },
+];
 
+const TestimonialSection: React.FC = () => {
   return (
-    <section className="py-12 md:py-20 px-40 md:px-5 bg-green-50 dark:bg-gray-900 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-16">
+    <section className="py-12 md:py-20 px-5 md:px-10 bg-green-50 dark:bg-gray-900 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-16">
       {/* Left Side - Images */}
       <div className="w-full lg:w-1/2 flex flex-col md:flex-row items-center justify-center mb-10 lg:mb-0">
         <div className="w-full md:w-2/3">
@@ -79,15 +79,15 @@ const TestimonialSection = () => {
             alt="Main Image"
           />
         </div>
-        <div className="w-full md:w-1/3 flex md:flex-col items-center ">
+        <div className="w-full md:w-1/3 flex md:flex-col items-center">
           <img
             className="w-full h-[150px] md:h-[250px] object-cover "
-            src="ss.webp"
+            src="/ss.webp"
             alt="Image 1"
           />
           <img
             className="w-full h-[150px] md:h-[250px] object-cover "
-            src="ww.webp"
+            src="/ww.webp"
             alt="Image 2"
           />
         </div>

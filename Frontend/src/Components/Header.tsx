@@ -1,7 +1,7 @@
 "use client";
 import { FaChevronRight } from "react-icons/fa6";
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation"; // Import useRouter for navigation
+import { useNavigate } from "react-router-dom"; // Use useNavigate from React Router
 import CountUp from "react-countup";
 
 const images = ["/banner.webp", "/banner-bg.webp", "/banner-bg-2.webp"];
@@ -11,7 +11,7 @@ const TRANSITION_DURATION = 1000;
 const IMAGE_DISPLAY_DURATION = 5000;
 
 const Header: React.FC = () => {
-  const router = useRouter(); // Initialize router
+  const navigate = useNavigate(); // Initialize navigate for routing
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [nextImageIndex, setNextImageIndex] = useState(1);
   const [isFading, setIsFading] = useState(false);
@@ -62,7 +62,7 @@ const Header: React.FC = () => {
 
   // Handler to navigate to login page
   const handleGetStarted = () => {
-    router.push("/login");
+    navigate("/login"); // Use navigate for routing in React
   };
 
   return (

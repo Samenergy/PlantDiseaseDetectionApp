@@ -1,6 +1,5 @@
-"use client";
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
+import { Link } from "react-router-dom"; // Import Link from react-router-dom
 
 const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -18,7 +17,7 @@ const Navbar: React.FC = () => {
 
   return (
     <nav
-      className={`fixed  w-full z-10 transition-all duration-300 ${
+      className={`fixed w-full z-10 transition-all duration-300 ${
         isScrolled ? "backdrop-blur-md" : "bg-transparent"
       }`}
     >
@@ -27,7 +26,7 @@ const Navbar: React.FC = () => {
         <div className="flex items-center gap-5">
           {/* Logo */}
           <div className="text-gray-900 dark:text-white text-xl rounded-full border border-gray-500">
-            <Link href="/">
+            <Link to="/">
               <img
                 src="/logo.png"
                 alt="LeafSense Logo"
@@ -38,19 +37,19 @@ const Navbar: React.FC = () => {
 
           {/* Navigation Links */}
           <div className="space-x-8 text-gray-900 dark:text-white rounded-full border border-gray-500 px-4 py-2 text-md">
-            <Link href="/">Home</Link>
-            <Link href="/detect">Detect Disease</Link>
-            <Link href="/diseases">Disease Database</Link>
-            <Link href="/about">About Us</Link>
-            <Link href="/contact">Contact</Link>
+            <Link to="/">Home</Link>
+            <Link to="/detect">Detect Disease</Link>
+            <Link to="/diseases">Disease Database</Link>
+            <Link to="/about">About Us</Link>
+            <Link to="/contact">Contact</Link>
           </div>
         </div>
 
         {/* Login & SignUp positioned to the far right */}
         <div className="absolute -right-[600px] top-1/2 -translate-y-1/2">
           <div className="space-x-8 text-gray-900 dark:text-white rounded-full border border-gray-500 px-4 py-2 text-md">
-            <Link href="/login">Login</Link>
-            <Link href="/signup">SignUp</Link>
+            <Link to="/login">Login</Link>
+            <Link to="/signup">SignUp</Link>
           </div>
         </div>
       </div>
