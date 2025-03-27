@@ -1,7 +1,7 @@
 import React, { useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
-// Importing icons for Google and Apple (you can use any icon library like react-icons)
+// Importing icons for Google and Apple
 import { FcGoogle } from "react-icons/fc";
 import { FaApple } from "react-icons/fa";
 
@@ -24,7 +24,7 @@ const Login: React.FC = () => {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          username: email, // Changed to email to match the form
+          username: email,
           password,
         }),
       });
@@ -35,7 +35,7 @@ const Login: React.FC = () => {
 
       const data = await response.json();
       localStorage.setItem("token", data.access_token);
-      navigate("/dashboard"); // Redirect to dashboard after login
+      navigate("/dashboard");
     } catch (err) {
       setError("Failed to login. Please check your credentials.");
     } finally {
@@ -44,7 +44,7 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-200">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900">
       <div className="flex bg-white rounded-2xl shadow-lg max-w-4xl w-full">
         {/* Left Side: Login Form */}
         <div className="w-1/2 p-8">
