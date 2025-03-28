@@ -8,13 +8,17 @@ const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("detect");
   const [leafImage, setLeafImage] = useState<File | null>(null);
   const [zipFile, setZipFile] = useState<File | null>(null);
-  const [predictionHistory, setPredictionHistory] = useState<{ id: number; text: string; date: string }[]>([]);
-  const [retrainHistory, setRetrainHistory] = useState<{ id: number; text: string; date: string }[]>([]);
+  const [predictionHistory, setPredictionHistory] = useState<
+    { id: number; text: string; date: string }[]
+  >([]);
+  const [retrainHistory, setRetrainHistory] = useState<
+    { id: number; text: string; date: string }[]
+  >([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   // Base URL for API
-  const API_BASE_URL = "https://plantdiseasedetectionapp.onrender.com";
+  const API_BASE_URL = "http://127.0.0.1:8000";
 
   // Get token from localStorage
   const getToken = () => localStorage.getItem("token");
@@ -26,13 +30,13 @@ const Dashboard: React.FC = () => {
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
+  
     setLeafImage(file);
     setIsProcessing(true);
-
+  
     const formData = new FormData();
-    formData.append("image", file);
-
+    formData.append("file", file); // Backend expects "file" field
+  
     try {
       const response = await fetch(`${API_BASE_URL}/predict`, {
         method: "POST",
@@ -41,23 +45,24 @@ const Dashboard: React.FC = () => {
         },
         body: formData,
       });
-
+  
       if (!response.ok) {
         throw new Error("Prediction failed");
       }
-
+  
       const data = await response.json();
+      const confidencePercentage = Number((data.confidence * 100).toFixed(2)); // Convert to percentage and round to 2 decimal places
       const prediction = {
-        id: Date.now(),
-        text: `Predicted disease for ${file.name}: ${data.prediction || "Healthy"}`,
+        id: Date.now(), // Temporary ID, will be replaced by backend ID in history
+        text: `Predicted disease for ${file.name}: ${data.prediction || "Healthy"} (${confidencePercentage}%)`,
         date: new Date().toLocaleString(),
       };
       setPredictionHistory((prev) => [...prev, prediction]);
-
+  
       Swal.fire({
         icon: "success",
         title: "Prediction Successful",
-        text: `Disease predicted: ${data.prediction || "Healthy"}`,
+        text: `Disease predicted: ${data.prediction || "Healthy"} with ${confidencePercentage}% confidence`,
         timer: 2000,
         showConfirmButton: false,
       });
@@ -81,7 +86,7 @@ const Dashboard: React.FC = () => {
     setIsProcessing(true);
 
     const formData = new FormData();
-    formData.append("zip_file", file);
+    formData.append("files", file); // Backend expects "files" as a list, but single file works
 
     try {
       const response = await fetch(`${API_BASE_URL}/retrain`, {
@@ -93,13 +98,14 @@ const Dashboard: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error("Retraining failed");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Retraining failed");
       }
 
       const data = await response.json();
       const retrainLog = {
-        id: Date.now(),
-        text: `Model retrained with ${file.name}`,
+        id: data.retraining_id || Date.now(), // Use backend ID if available
+        text: `Model retrained with ${file.name} (${data.num_classes} classes)`,
         date: new Date().toLocaleString(),
       };
       setRetrainHistory((prev) => [...prev, retrainLog]);
@@ -111,11 +117,11 @@ const Dashboard: React.FC = () => {
         timer: 2000,
         showConfirmButton: false,
       });
-    } catch (error) {
+    } catch (error: any) {
       Swal.fire({
         icon: "error",
         title: "Retraining Failed",
-        text: "Unable to retrain the model. Please try again.",
+        text: error.message || "Unable to retrain the model. Please try again.",
       });
     } finally {
       setIsProcessing(false);
@@ -138,7 +144,14 @@ const Dashboard: React.FC = () => {
       }
 
       const data = await response.json();
-      setPredictionHistory(data); // Assuming data is an array of {id, text, date}
+      // Ensure data matches expected format
+      setPredictionHistory(
+        data.map((item: any) => ({
+          id: item.id,
+          text: item.text,
+          date: new Date(item.date).toLocaleString(), // Convert ISO string to local time
+        }))
+      );
     } catch (error) {
       Swal.fire({
         icon: "error",
@@ -164,7 +177,14 @@ const Dashboard: React.FC = () => {
       }
 
       const data = await response.json();
-      setRetrainHistory(data); // Assuming data is an array of {id, text, date}
+      // Ensure data matches expected format
+      setRetrainHistory(
+        data.map((item: any) => ({
+          id: item.id,
+          text: item.text,
+          date: new Date(item.date).toLocaleString(), // Convert ISO string to local time
+        }))
+      );
     } catch (error) {
       Swal.fire({
         icon: "error",
@@ -291,7 +311,8 @@ const Dashboard: React.FC = () => {
                 <div className="mt-4 p-4 bg-gray-700 rounded-lg animate-fade-in">
                   <p className="text-green-400">Uploaded: {leafImage.name}</p>
                   <p className="mt-2 text-gray-300">
-                    Prediction: {predictionHistory[predictionHistory.length - 1]?.text.split(": ")[1] || "Healthy"}
+                    Prediction:{" "}
+                    {predictionHistory[predictionHistory.length - 1]?.text.split(": ")[1] || "Healthy"}
                   </p>
                   <img
                     src={URL.createObjectURL(leafImage)}
@@ -377,7 +398,6 @@ const Dashboard: React.FC = () => {
         </div>
       </main>
 
-     
       <style>{`
         @keyframes fade-in-down {
           from {

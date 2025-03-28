@@ -78,7 +78,8 @@ class Retraining(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
     user = relationship("User", back_populates="retrainings")
 
-# Create tables
+# Drop and recreate tables (run once, then comment out)
+Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
 # Initialize FastAPI app
