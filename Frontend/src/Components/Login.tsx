@@ -55,7 +55,7 @@ const Login: React.FC = () => {
         {/* Left Side: Login Form */}
         <div className="w-1/2 p-12 bg-gray-800">
           <h2 className="text-4xl font-bold text-white mb-3">Welcome back</h2>
-          <p className="text-gray-400 text-lg mb-8">Login to continue your gardening journey</p>
+          <p className="text-gray-400 text-lg mb-8">Login to continue your Detecting journey</p>
 
           {error && (
             <div className="bg-red-100 text-red-700 themep-4 rounded-lg mb-6">

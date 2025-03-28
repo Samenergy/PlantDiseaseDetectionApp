@@ -294,7 +294,7 @@ const Dashboard: React.FC = () => {
                 ? "Model Retraining"
                 : "Activity History"}
             </h2>
-            <p className="text-gray-400 mt-2">Advanced tools for your gardening needs</p>
+            <p className="text-gray-400 mt-2">Advanced tools for your Farming needs</p>
           </header>
 
           {/* Content Sections */}
