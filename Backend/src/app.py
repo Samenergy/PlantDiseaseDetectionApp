@@ -21,9 +21,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, relationship
 
 from dotenv import load_dotenv
 
@@ -37,7 +37,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 # JWT Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key")  
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -55,22 +55,28 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
+    predictions = relationship("Prediction", back_populates="user")
+    retrainings = relationship("Retraining", back_populates="user")
 
 class Prediction(Base):
     __tablename__ = "predictions"
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     predicted_disease = Column(String(100), nullable=False)
     confidence = Column(Float, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
+    user = relationship("User", back_populates="predictions")
 
 class Retraining(Base):
     __tablename__ = "retrainings"
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     num_classes = Column(Integer, nullable=False)
     training_accuracy = Column(Float)
     validation_accuracy = Column(Float, nullable=True)
     class_metrics = Column(Text)  # Store JSON string
     timestamp = Column(DateTime, default=datetime.utcnow)
+    user = relationship("User", back_populates="retrainings")
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -78,7 +84,7 @@ Base.metadata.create_all(bind=engine)
 # Initialize FastAPI app
 app = FastAPI()
 
-# Add CORS middleware (optional, adjust origins as needed)
+# Add CORS middleware (adjust origins as needed)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -95,14 +101,14 @@ model = tf.keras.models.load_model(MODEL_PATH)
 CLASS_NAMES = [
     'Apple___Apple_scab', 'Apple___Black_rot', 'Apple___Cedar_apple_rust', 'Apple___healthy',
     'Blueberry___healthy', 'Cherry_(including_sour)___Powdery_mildew', 'Cherry_(including_sour)___healthy',
-    'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot', 'Corn_(maize)___Common_rust_', 
-    'Corn_(maize)___Northern_Leaf_Blight', 'Corn_(maize)___healthy', 'Grape___Black_rot', 
+    'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot', 'Corn_(maize)___Common_rust_',
+    'Corn_(maize)___Northern_Leaf_Blight', 'Corn_(maize)___healthy', 'Grape___Black_rot',
     'Grape___Esca_(Black_Measles)', 'Grape___Leaf_blight_(Isariopsis_Leaf_Spot)', 'Grape___healthy',
     'Orange___Haunglongbing_(Citrus_greening)', 'Peach___Bacterial_spot', 'Peach___healthy',
     'Pepper,_bell___Bacterial_spot', 'Pepper,_bell___healthy', 'Potato___Early_blight', 'Potato___Late_blight',
     'Potato___healthy', 'Raspberry___healthy', 'Soybean___healthy', 'Squash___Powdery_mildew',
     'Strawberry___Leaf_scorch', 'Strawberry___healthy', 'Tomato___Bacterial_spot', 'Tomato___Early_blight',
-    'Tomato___Late_blight', 'Tomato___Leaf_Mold', 'Tomato___Septoria_leaf_spot', 
+    'Tomato___Late_blight', 'Tomato___Leaf_Mold', 'Tomato___Septoria_leaf_spot',
     'Tomato___Spider_mites Two-spotted_spider_mite', 'Tomato___Target_Spot', 'Tomato___Tomato_Yellow_Leaf_Curl_Virus',
     'Tomato___Tomato_mosaic_virus', 'Tomato___healthy'
 ]
@@ -166,8 +172,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     
     return user
 
-
-
 def preprocess_image(img_bytes: bytes):
     """Preprocess image for prediction."""
     img = image.load_img(io.BytesIO(img_bytes), target_size=(128, 128))
@@ -203,8 +207,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
 
 # Protected endpoints
 @app.post("/predict")
-async def predict(file: UploadFile = File(...), 
-                 db: Session = Depends(get_db), 
+async def predict(file: UploadFile = File(...),
+                 db: Session = Depends(get_db),
                  current_user: User = Depends(get_current_user)):
     img_bytes = await file.read()
     img = preprocess_image(img_bytes)
@@ -213,12 +217,16 @@ async def predict(file: UploadFile = File(...),
     confidence = np.max(predictions)
     disease = CLASS_NAMES[predicted_index]
     
-    # Save prediction to database
-    prediction = Prediction(predicted_disease=disease, confidence=float(confidence))
+    # Save prediction to database with user_id
+    prediction = Prediction(
+        user_id=current_user.id,
+        predicted_disease=disease,
+        confidence=float(confidence)
+    )
     db.add(prediction)
     db.commit()
     
-    return JSONResponse(content={"predicted_disease": disease, "confidence": float(confidence)})
+    return JSONResponse(content={"prediction": disease, "confidence": float(confidence)})
 
 def extract_zip(zip_path, extract_to):
     """Extract ZIP files."""
@@ -233,13 +241,13 @@ def save_visualizations(y_true, y_pred_classes, target_names):
     plt.text(0.01, 0.99, class_report, {'fontsize': 10}, fontfamily='monospace')
     plt.axis('off')
     plt.title("Classification Report")
-    plt.savefig(os.path.join(VISUALIZATION_DIR, "classification_report.png"), 
+    plt.savefig(os.path.join(VISUALIZATION_DIR, "classification_report.png"),
                 bbox_inches='tight', dpi=300)
     plt.close()
 
     cm = confusion_matrix(y_true, y_pred_classes)
     plt.figure(figsize=(max(10, len(target_names)), max(10, len(target_names))))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
                 xticklabels=target_names, yticklabels=target_names)
     plt.title("Confusion Matrix")
     plt.ylabel('True Label')
@@ -247,13 +255,13 @@ def save_visualizations(y_true, y_pred_classes, target_names):
     plt.xticks(rotation=45, ha='right')
     plt.yticks(rotation=0)
     plt.tight_layout()
-    plt.savefig(os.path.join(VISUALIZATION_DIR, "confusion_matrix.png"), 
+    plt.savefig(os.path.join(VISUALIZATION_DIR, "confusion_matrix.png"),
                 bbox_inches='tight', dpi=300)
     plt.close()
 
 @app.post("/retrain")
-async def retrain(files: List[UploadFile] = File(...), 
-                 learning_rate: float = 0.0001, 
+async def retrain(files: List[UploadFile] = File(...),
+                 learning_rate: float = 0.0001,
                  epochs: int = 10,
                  db: Session = Depends(get_db),
                  current_user: User = Depends(get_current_user)):
@@ -322,7 +330,7 @@ async def retrain(files: List[UploadFile] = File(...),
         for class_dir in os.listdir(new_data_dir):
             class_path = os.path.join(new_data_dir, class_dir)
             if os.path.isdir(class_path):
-                image_count = len([f for f in os.listdir(class_path) 
+                image_count = len([f for f in os.listdir(class_path)
                                  if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
                 if image_count >= 2:
                     class_counts[class_dir] = image_count
@@ -484,8 +492,9 @@ async def retrain(files: List[UploadFile] = File(...),
         training_accuracy = float(history.history['accuracy'][-1]) if 'accuracy' in history.history else None
         validation_accuracy = float(history.history['val_accuracy'][-1]) if use_validation and 'val_accuracy' in history.history else None
         
-        # Save retraining data to database
+        # Save retraining data to database with user_id
         retraining = Retraining(
+            user_id=current_user.id,
             num_classes=len(CLASS_NAMES),
             training_accuracy=training_accuracy,
             validation_accuracy=validation_accuracy,
@@ -507,7 +516,8 @@ async def retrain(files: List[UploadFile] = File(...),
                 "classification_report": os.path.join(VISUALIZATION_DIR, "classification_report.png"),
                 "confusion_matrix": os.path.join(VISUALIZATION_DIR, "confusion_matrix.png")
             },
-            "retraining_id": retraining.id
+            "retraining_id": retraining.id,
+            "user_id": current_user.id
         }
         
         if use_validation:
@@ -538,14 +548,14 @@ def read_root():
 
 @app.get("/prediction_history")
 async def get_prediction_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    predictions = db.query(Prediction).order_by(Prediction.timestamp.desc()).all()
-    return [{"id": p.id, "disease": p.predicted_disease, "confidence": p.confidence, "timestamp": p.timestamp.isoformat()} 
+    predictions = db.query(Prediction).filter(Prediction.user_id == current_user.id).order_by(Prediction.timestamp.desc()).all()
+    return [{"id": p.id, "text": f"Predicted disease: {p.predicted_disease}", "confidence": p.confidence, "date": p.timestamp.isoformat()}
             for p in predictions]
 
 @app.get("/retraining_history")
 async def get_retraining_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    retrainings = db.query(Retraining).order_by(Retraining.timestamp.desc()).all()
-    return [{"id": r.id, "num_classes": r.num_classes, "training_accuracy": r.training_accuracy,
+    retrainings = db.query(Retraining).filter(Retraining.user_id == current_user.id).order_by(Retraining.timestamp.desc()).all()
+    return [{"id": r.id, "text": f"Retrained model with {r.num_classes} classes", "training_accuracy": r.training_accuracy,
              "validation_accuracy": r.validation_accuracy, "class_metrics": json.loads(r.class_metrics),
-             "timestamp": r.timestamp.isoformat()} 
+             "date": r.timestamp.isoformat()}
             for r in retrainings]
