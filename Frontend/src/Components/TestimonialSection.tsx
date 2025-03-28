@@ -97,7 +97,7 @@ const TestimonialSection: React.FC = () => {
         <div className="text-left mb-8 md:mb-10">
           <h2 className="flex items-center gochi-hand-regular mb-10 md:mb-20">
             <div className="mx-2 h-0.5 w-6 bg-[#25c656]"></div>
-            <span className="text-2xl md:text-2xl">Testimonies</span>
+            <span className="text-2xl text-gray-400 md:text-2xl">Testimonies</span>
           </h2>
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-800 dark:text-white -mt-6 md:-mt-16">
             What Our Users Say

@@ -1,7 +1,6 @@
 
 
 
-import CTASection from './CTASection';
 import FeaturesSection from './FeaturesSection';
 import Footer from './Footer';
 import Header from './Header';

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Route, Routes } from 'react-router-dom'; // Only import Route and Routes, no need for Router
 import Home from './Components/Home';
 import Login from './Components/Login';

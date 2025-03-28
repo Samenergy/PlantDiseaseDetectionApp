@@ -1,5 +1,4 @@
-import React from "react";
-import Image from "next/image";
+
 import { FaMicroscope, FaMobileAlt, FaDatabase } from "react-icons/fa";
 
 const FeaturesSection = () => {
