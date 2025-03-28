@@ -67,7 +67,7 @@ const Header: React.FC = () => {
 
   return (
     <header
-      className="relative text-center px-8 py-24  dark:bg-gradient-to-bl dark:text-white transition-colors"
+      className="relative text-center px-8 py-24 dark:bg-gradient-to-bl dark:text-white transition-colors"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -97,8 +97,8 @@ const Header: React.FC = () => {
 
       {/* Content */}
       <div className="relative z-10">
-        <div className="flex items-center justify-between gap-72">
-          <h1 className="text-7xl text-left font-bold mt-20 text-gray-900 dark:text-white overflow-hidden">
+        <div className="flex items-center justify-between gap-8 md:gap-72">
+          <h1 className="text-4xl md:text-7xl text-left font-bold mt-20 text-gray-900 dark:text-white overflow-hidden">
             <div
               className={`transform transition-transform duration-700 ${
                 showDetect ? "translate-x-0" : "-translate-x-full"
@@ -128,7 +128,7 @@ const Header: React.FC = () => {
               showDescription ? "translate-x-0" : "translate-x-full"
             }`}
           >
-            <p className="text-lg text-gray-700 dark:text-gray-300 text-left max-w-lg mt-8">
+            <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300 text-left max-w-lg mt-8 mx-auto">
               LeafSense uses advanced AI technology to instantly identify plant
               diseases from simple leaf photos. Our cutting-edge system helps
               farmers, gardeners, and agricultural professionals detect problems
@@ -139,7 +139,7 @@ const Header: React.FC = () => {
         </div>
 
         <div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap">
             <button
               onClick={handleGetStarted}
               className="rounded-md bg-[#25c656] -mt-10 text-left px-6 py-4 flex items-center space-x-5 hover:bg-gray-900 dark:hover:bg-white hover:text-white dark:hover:text-black transition-colors"
@@ -147,9 +147,9 @@ const Header: React.FC = () => {
               Get Started
               <FaChevronRight />
             </button>
-            <div className="space-x-20 flex items-center mt-36 justify-between">
+            <div className="space-x-20 flex items-center mt-36 justify-between flex-wrap">
               <div>
-                <p className="text-8xl text-gray-900 dark:text-white">
+                <p className="text-4xl md:text-8xl text-gray-900 dark:text-white">
                   <CountUp start={0} end={95} duration={5} />
                   <span>%</span>
                 </p>
@@ -158,7 +158,7 @@ const Header: React.FC = () => {
                 </p>
               </div>
               <div>
-                <p className="text-8xl text-gray-900 dark:text-white">
+                <p className="text-4xl md:text-8xl text-gray-900 dark:text-white">
                   <CountUp start={0} end={10} duration={5} />
                   <span>+</span>
                 </p>

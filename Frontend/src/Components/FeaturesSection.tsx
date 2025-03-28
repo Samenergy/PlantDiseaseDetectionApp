@@ -17,7 +17,7 @@ const FeaturesSection = () => {
             <div className="text-left mb-12 md:mb-16">
               <h2 className="flex items-center gochi-hand-regular md:mb-20">
                 <div className="mx-2 h-0.5 w-6 bg-[#25c656]"></div>
-                <span className="text-2xl md:text-2xl">
+                <span className="text-2xl text-gray-400 md:text-2xl">
                   Why Choose LeafSense
                 </span>
               </h2>

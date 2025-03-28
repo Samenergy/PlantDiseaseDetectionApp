@@ -4,7 +4,7 @@ import Home from './Components/Home';
 import Login from './Components/Login';
 import NotFound from './Components/NotFound'; // Import the NotFound component
 import Dashboard from './Components/Dashboard';
-
+import './App.css';
 const App = () => {
   return (
     <Routes> {/* Define Routes directly */}

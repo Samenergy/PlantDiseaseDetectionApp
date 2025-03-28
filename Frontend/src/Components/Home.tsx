@@ -18,8 +18,7 @@ export default function Home() {
       <FeaturesSection/>
       <HowItWorksSection/>
       <StatisticsSection/>
-      {/* <TestimonialSection/> */}
-      <CTASection/>
+      <TestimonialSection/>
       <Footer/>
     </div>
   );
