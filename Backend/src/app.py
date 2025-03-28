@@ -509,7 +509,7 @@ async def retrain(files: List[UploadFile] = File(...),
         db.commit()
         
         # 12. Prepare response with URLs instead of file paths
-        base_url = "http://127.0.0.1:8000"  # Adjust for production (e.g., your Render URL)
+        base_url = "https://plantdiseasedetectionapp.onrender.com"  # Adjust for production (e.g., your Render URL)
         response_content = {
             "message": "Model fine-tuning successful with preserved knowledge!",
             "num_classes": len(CLASS_NAMES),
