@@ -16,6 +16,10 @@ const Dashboard: React.FC = () => {
   >([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [visualizationImages, setVisualizationImages] = useState<{
+    classification_report: string | null;
+    confusion_matrix: string | null;
+  }>({ classification_report: null, confusion_matrix: null });
 
   // Base URL for API
   const API_BASE_URL = "http://127.0.0.1:8000";
@@ -110,6 +114,12 @@ const Dashboard: React.FC = () => {
       };
       setRetrainHistory((prev) => [...prev, retrainLog]);
 
+      // Store visualization image URLs
+      setVisualizationImages({
+        classification_report: data.visualization_files.classification_report,
+        confusion_matrix: data.visualization_files.confusion_matrix,
+      });
+
       Swal.fire({
         icon: "success",
         title: "Retraining Successful",
@@ -144,7 +154,6 @@ const Dashboard: React.FC = () => {
       }
 
       const data = await response.json();
-      // Ensure data matches expected format
       setPredictionHistory(
         data.map((item: any) => ({
           id: item.id,
@@ -177,7 +186,6 @@ const Dashboard: React.FC = () => {
       }
 
       const data = await response.json();
-      // Ensure data matches expected format
       setRetrainHistory(
         data.map((item: any) => ({
           id: item.id,
@@ -345,6 +353,26 @@ const Dashboard: React.FC = () => {
                 <div className="mt-4 p-4 bg-gray-700 rounded-lg animate-fade-in">
                   <p className="text-green-400">Uploaded: {zipFile.name}</p>
                   <p className="mt-2 text-gray-300">Status: Retraining Complete</p>
+                  {visualizationImages.classification_report && (
+                    <div className="mt-4">
+                      <h4 className="text-lg font-medium text-green-400">Classification Report</h4>
+                      <img
+                        src={visualizationImages.classification_report}
+                        alt="Classification Report"
+                        className="mt-2 max-w-full rounded-lg shadow-md"
+                      />
+                    </div>
+                  )}
+                  {visualizationImages.confusion_matrix && (
+                    <div className="mt-4">
+                      <h4 className="text-lg font-medium text-green-400">Confusion Matrix</h4>
+                      <img
+                        src={visualizationImages.confusion_matrix}
+                        alt="Confusion Matrix"
+                        className="mt-2 max-w-full rounded-lg shadow-md"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </section>

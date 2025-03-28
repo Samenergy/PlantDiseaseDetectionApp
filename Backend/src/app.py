@@ -18,6 +18,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles  # Add this import
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
@@ -79,11 +80,14 @@ class Retraining(Base):
     user = relationship("User", back_populates="retrainings")
 
 # Drop and recreate tables (run once, then comment out)
-Base.metadata.drop_all(bind=engine)
+# Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
 # Initialize FastAPI app
 app = FastAPI()
+
+# Serve static files from the "visualizations" directory
+app.mount("/visualizations", StaticFiles(directory="visualizations"), name="visualizations")
 
 # Add CORS middleware (adjust origins as needed)
 app.add_middleware(
@@ -504,7 +508,8 @@ async def retrain(files: List[UploadFile] = File(...),
         db.add(retraining)
         db.commit()
         
-        # 12. Prepare response
+        # 12. Prepare response with URLs instead of file paths
+        base_url = "http://127.0.0.1:8000"  # Adjust for production (e.g., your Render URL)
         response_content = {
             "message": "Model fine-tuning successful with preserved knowledge!",
             "num_classes": len(CLASS_NAMES),
@@ -514,8 +519,8 @@ async def retrain(files: List[UploadFile] = File(...),
             "class_metrics": class_metrics,
             "fine_tuned_model_path": fine_tuned_model_path,
             "visualization_files": {
-                "classification_report": os.path.join(VISUALIZATION_DIR, "classification_report.png"),
-                "confusion_matrix": os.path.join(VISUALIZATION_DIR, "confusion_matrix.png")
+                "classification_report": f"{base_url}/visualizations/classification_report.png",
+                "confusion_matrix": f"{base_url}/visualizations/confusion_matrix.png"
             },
             "retraining_id": retraining.id,
             "user_id": current_user.id
