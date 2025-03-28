@@ -18,7 +18,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles  # Add this import
+from fastapi.staticfiles import StaticFiles
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
@@ -79,8 +79,6 @@ class Retraining(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
     user = relationship("User", back_populates="retrainings")
 
-# Drop and recreate tables (run once, then comment out)
-# Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
 # Initialize FastAPI app
@@ -89,7 +87,7 @@ app = FastAPI()
 # Serve static files from the "visualizations" directory
 app.mount("/visualizations", StaticFiles(directory="visualizations"), name="visualizations")
 
-# Add CORS middleware (adjust origins as needed)
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -222,7 +220,6 @@ async def predict(file: UploadFile = File(...),
     confidence = np.max(predictions)
     disease = CLASS_NAMES[predicted_index]
     
-    # Save prediction to database with user_id
     prediction = Prediction(
         user_id=current_user.id,
         predicted_disease=disease,
@@ -277,7 +274,6 @@ async def retrain(files: List[UploadFile] = File(...),
     
     try:
         # 1. Process uploaded files
-        image_paths = []
         extracted_dirs = []
         
         for file in files:
@@ -292,69 +288,50 @@ async def retrain(files: List[UploadFile] = File(...),
                 extracted_dirs.append(extract_dir)
                 os.remove(file_path)
                 
-                print(f"Extracted to: {extract_dir}")
+                print(f"Extracted ZIP to: {extract_dir}")
                 print(f"Contents of extract_dir: {os.listdir(extract_dir)}")
                 
-                for subdir in ['train', 'val']:
+                # Process train and val subdirectories
+                for subdir in ['train', 'val','test']:
                     subdir_path = os.path.join(extract_dir, subdir)
                     if os.path.exists(subdir_path) and os.path.isdir(subdir_path):
                         print(f"Processing {subdir}: {os.listdir(subdir_path)}")
-                        for item in os.listdir(subdir_path):
-                            item_path = os.path.join(subdir_path, item)
-                            if os.path.isdir(item_path) and item not in ['__MACOSX']:
-                                target_dir = os.path.join(new_data_dir, item)
+                        for class_name in os.listdir(subdir_path):
+                            class_path = os.path.join(subdir_path, class_name)
+                            if os.path.isdir(class_path) and class_name not in ['__MACOSX']:
+                                target_dir = os.path.join(new_data_dir, class_name)
                                 os.makedirs(target_dir, exist_ok=True)
-                                has_images = False
-                                for img in os.listdir(item_path):
+                                for img in os.listdir(class_path):
                                     if img.lower().endswith(('.jpg', '.jpeg', '.png')):
-                                        shutil.copy(os.path.join(item_path, img), os.path.join(target_dir, img))
-                                        has_images = True
-                                if not has_images:
-                                    print(f"Skipping empty folder: {item}")
-                                    shutil.rmtree(target_dir)
-            else:
-                image_paths.append(file_path)
+                                        shutil.copy(os.path.join(class_path, img), os.path.join(target_dir, img))
         
-        # 2. Process loose image files
-        for img_path in image_paths:
-            try:
-                img_array = preprocess_image(open(img_path, 'rb').read())
-                prediction = model.predict(img_array)
-                label_index = np.argmax(prediction)
-                label = CLASS_NAMES[label_index]
-                
-                label_dir = os.path.join(new_data_dir, label)
-                os.makedirs(label_dir, exist_ok=True)
-                img_filename = os.path.basename(img_path)
-                shutil.copy(img_path, os.path.join(label_dir, img_filename))
-            except Exception as e:
-                print(f"Error processing {img_path}: {str(e)}")
-        
-        # 3. Filter classes with sufficient data
+        # 2. Filter classes with sufficient data
         class_counts = {}
         for class_dir in os.listdir(new_data_dir):
             class_path = os.path.join(new_data_dir, class_dir)
             if os.path.isdir(class_path):
                 image_count = len([f for f in os.listdir(class_path)
                                  if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
-                if image_count >= 2:
+                if image_count >= 2:  # Minimum 2 images per class
                     class_counts[class_dir] = image_count
                 else:
                     print(f"Skipping class {class_dir} with insufficient samples ({image_count})")
                     shutil.rmtree(class_path)
         
         if not class_counts:
-            return JSONResponse(content={
+            raise HTTPException(status_code=400, detail={
                 "error": "No valid classes with sufficient data found",
-                "details": "Each class must have at least 2 images"
-            }, status_code=400)
+                "details": "Each class must have at least 2 images",
+                "class_counts": {class_dir: len(os.listdir(os.path.join(new_data_dir, class_dir)))
+                               for class_dir in os.listdir(new_data_dir) if os.path.isdir(os.path.join(new_data_dir, class_dir))}
+            })
         
-        print(f"Class counts: {class_counts}")
+        print(f"Valid classes and image counts: {class_counts}")
         
-        # 4. Create data generators
+        # 3. Create data generators
         target_names = list(class_counts.keys())
         all_classes = list(set(CLASS_NAMES + target_names))
-        use_validation = all(count >= 4 for count in class_counts.values())
+        use_validation = all(count >= 4 for count in class_counts.values())  # Require 4+ for validation split
         
         if use_validation:
             data_generator = tf.keras.preprocessing.image.ImageDataGenerator(
@@ -401,7 +378,7 @@ async def retrain(files: List[UploadFile] = File(...),
             )
             validation_generator = None
         
-        # 5. Create a new model for fine-tuning
+        # 4. Create a new model for fine-tuning
         temp_model_path = os.path.join(os.path.dirname(MODEL_PATH), "temp_model.keras")
         model.save(temp_model_path)
         working_model = tf.keras.models.load_model(temp_model_path)
@@ -417,7 +394,7 @@ async def retrain(files: List[UploadFile] = File(...),
             metrics=['accuracy']
         )
         
-        # 6. Add callbacks
+        # 5. Add callbacks
         callbacks = [
             tf.keras.callbacks.EarlyStopping(
                 monitor='val_loss' if use_validation else 'loss',
@@ -432,7 +409,7 @@ async def retrain(files: List[UploadFile] = File(...),
             )
         ]
         
-        # 7. Train the model
+        # 6. Train the model
         if use_validation:
             history = working_model.fit(
                 train_generator,
@@ -450,7 +427,7 @@ async def retrain(files: List[UploadFile] = File(...),
                 steps_per_epoch=max(1, len(train_generator))
             )
         
-        # 8. Generate classification report and predictions
+        # 7. Generate classification report and predictions
         if use_validation:
             validation_generator.reset()
             y_pred = working_model.predict(validation_generator)
@@ -469,10 +446,10 @@ async def retrain(files: List[UploadFile] = File(...),
             output_dict=True
         )
         
-        # 9. Save visualizations
+        # 8. Save visualizations
         save_visualizations(y_true, y_pred_classes, target_names)
         
-        # 10. Save the fine-tuned model
+        # 9. Save the fine-tuned model
         fine_tuned_model_path = os.path.join(os.path.dirname(MODEL_PATH), "plant_disease_model.keras")
         working_model.save(fine_tuned_model_path)
         model = tf.keras.models.load_model(fine_tuned_model_path)
@@ -481,7 +458,7 @@ async def retrain(files: List[UploadFile] = File(...),
         with open(os.path.join(os.path.dirname(MODEL_PATH), "class_names.json"), "w") as f:
             json.dump(CLASS_NAMES, f)
         
-        # 11. Prepare metrics and save to database
+        # 10. Prepare metrics and save to database
         class_metrics = {}
         for class_name in target_names:
             if class_name in class_report:
@@ -497,7 +474,6 @@ async def retrain(files: List[UploadFile] = File(...),
         training_accuracy = float(history.history['accuracy'][-1]) if 'accuracy' in history.history else None
         validation_accuracy = float(history.history['val_accuracy'][-1]) if use_validation and 'val_accuracy' in history.history else None
         
-        # Save retraining data to database with user_id
         retraining = Retraining(
             user_id=current_user.id,
             num_classes=len(CLASS_NAMES),
@@ -508,10 +484,10 @@ async def retrain(files: List[UploadFile] = File(...),
         db.add(retraining)
         db.commit()
         
-        # 12. Prepare response with URLs instead of file paths
-        base_url = "https://plantdiseasedetectionapp.onrender.com"  # Adjust for production (e.g., your Render URL)
+        # 11. Prepare response
+        base_url = "http://127.0.0.1:8000"  # Adjust for production
         response_content = {
-            "message": "Model fine-tuning successful with preserved knowledge!",
+            "message": "Model fine-tuning successful!",
             "num_classes": len(CLASS_NAMES),
             "new_classes_added": new_classes_added,
             "class_counts": class_counts,
@@ -531,6 +507,8 @@ async def retrain(files: List[UploadFile] = File(...),
         
         return JSONResponse(content=response_content)
         
+    except HTTPException as he:
+        raise he
     except Exception as e:
         import traceback
         return JSONResponse(content={
