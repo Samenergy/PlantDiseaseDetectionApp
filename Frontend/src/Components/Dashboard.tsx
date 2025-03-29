@@ -1,4 +1,4 @@
-import React, { useState, ChangeEvent } from "react";
+import React, { useState, ChangeEvent, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaLeaf, FaSync, FaHistory, FaSignOutAlt, FaArrowLeft } from "react-icons/fa";
 import Swal from "sweetalert2";
@@ -22,8 +22,12 @@ const Dashboard: React.FC = () => {
     confusion_matrix: string | null;
   }>({ classification_report: null, confusion_matrix: null });
 
+  // Refs for file inputs
+  const leafInputRef = useRef<HTMLInputElement>(null);
+  const zipInputRef = useRef<HTMLInputElement>(null);
+
   // Base URL for API
-  const API_BASE_URL = "https://appdeploy-production.up.railway.app";
+  const API_BASE_URL = "http://127.0.0.1:8000";
 
   // Get token from localStorage
   const getToken = () => localStorage.getItem("token");
@@ -31,18 +35,34 @@ const Dashboard: React.FC = () => {
   // Toggle sidebar collapse
   const toggleSidebar = () => setIsSidebarCollapsed((prev) => !prev);
 
+  // Trigger file input click with debugging
+  const triggerFileInput = (ref: React.RefObject<HTMLInputElement>) => {
+    console.log("Triggering file input:", ref.current);
+    if (ref.current) {
+      ref.current.click();
+    } else {
+      console.error("File input ref is null or undefined");
+    }
+  };
+
   // Handle image upload with /predict API
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log("No file selected");
+      setIsProcessing(false); // Reset in case no file is picked
+      return;
+    }
 
+    console.log("File selected:", file.name);
     setLeafImage(file);
     setIsProcessing(true);
 
     const formData = new FormData();
-    formData.append("file", file); // Backend expects "file" field
+    formData.append("file", file);
 
     try {
+      console.log("Sending request to /predict");
       const response = await fetch(`${API_BASE_URL}/predict`, {
         method: "POST",
         headers: {
@@ -52,16 +72,19 @@ const Dashboard: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error("Prediction failed");
+        const errorText = await response.text();
+        throw new Error(`Prediction failed: ${errorText}`);
       }
 
       const data = await response.json();
-      const confidencePercentage = Number((data.confidence * 100).toFixed(2)); // Convert to percentage
-      const predictedDisease = data.prediction || "healthy"; // Default to "healthy" if no prediction
+      console.log("Prediction response:", data);
+
+      const confidencePercentage = Number((data.confidence * 100).toFixed(2));
+      const predictedDisease = data.prediction || "healthy";
       const treatment = DISEASE_TREATMENTS[predictedDisease] || "No specific treatment available.";
 
       const prediction = {
-        id: Date.now(), // Temporary ID, will be replaced by backend ID in history
+        id: Date.now(),
         text: `Predicted disease for ${file.name}: ${predictedDisease} (${confidencePercentage}%)`,
         treatment: treatment,
         date: new Date().toLocaleString(),
@@ -75,7 +98,8 @@ const Dashboard: React.FC = () => {
         timer: 3000,
         showConfirmButton: false,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Error during prediction:", error.message);
       Swal.fire({
         icon: "error",
         title: "Prediction Failed",
@@ -83,21 +107,28 @@ const Dashboard: React.FC = () => {
       });
     } finally {
       setIsProcessing(false);
+      console.log("Processing finished");
     }
   };
 
   // Handle zip file upload with /retrain API
   const handleZipUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log("No file selected");
+      setIsProcessing(false);
+      return;
+    }
 
+    console.log("File selected:", file.name);
     setZipFile(file);
     setIsProcessing(true);
 
     const formData = new FormData();
-    formData.append("files", file); // Backend expects "files" as a list, but single file works
+    formData.append("files", file);
 
     try {
+      console.log("Sending request to /retrain");
       const response = await fetch(`${API_BASE_URL}/retrain`, {
         method: "POST",
         headers: {
@@ -112,14 +143,15 @@ const Dashboard: React.FC = () => {
       }
 
       const data = await response.json();
+      console.log("Retraining response:", data);
+
       const retrainLog = {
-        id: data.retraining_id || Date.now(), // Use backend ID if available
+        id: data.retraining_id || Date.now(),
         text: `Model retrained with ${file.name} (${data.num_classes} classes)`,
         date: new Date().toLocaleString(),
       };
       setRetrainHistory((prev) => [...prev, retrainLog]);
 
-      // Store visualization image URLs
       setVisualizationImages({
         classification_report: data.visualization_files.classification_report,
         confusion_matrix: data.visualization_files.confusion_matrix,
@@ -133,6 +165,7 @@ const Dashboard: React.FC = () => {
         showConfirmButton: false,
       });
     } catch (error: any) {
+      console.error("Error during retraining:", error.message);
       Swal.fire({
         icon: "error",
         title: "Retraining Failed",
@@ -140,6 +173,7 @@ const Dashboard: React.FC = () => {
       });
     } finally {
       setIsProcessing(false);
+      console.log("Processing finished");
     }
   };
 
@@ -163,7 +197,10 @@ const Dashboard: React.FC = () => {
         data.map((item: any) => ({
           id: item.id,
           text: item.text,
-          treatment: item.treatment || DISEASE_TREATMENTS[item.text.split(": ")[1]?.split(" (")[0]] || "No treatment recorded.",
+          treatment:
+            item.treatment ||
+            DISEASE_TREATMENTS[item.text.split(": ")[1]?.split(" (")[0]] ||
+            "No treatment recorded.",
           date: new Date(item.date).toLocaleString(),
         }))
       );
@@ -239,7 +276,6 @@ const Dashboard: React.FC = () => {
         }`}
       >
         <div>
-          {/* Toggle Button and Title */}
           <div className="flex items-center justify-between mb-10">
             {!isSidebarCollapsed && <img src="/logo.png" alt="Logo" />}
             <button onClick={toggleSidebar} className="text-gray-300 hover:text-[#7fd95c]">
@@ -250,8 +286,6 @@ const Dashboard: React.FC = () => {
               )}
             </button>
           </div>
-
-          {/* Navigation */}
           <nav className="space-y-4">
             {[
               { id: "detect", label: "Detect Disease", icon: <FaLeaf /> },
@@ -274,8 +308,6 @@ const Dashboard: React.FC = () => {
             ))}
           </nav>
         </div>
-
-        {/* Logout Button */}
         <button
           onClick={handleLogout}
           className={`flex items-center space-x-3 p-3 bg-red-600 rounded-xl hover:bg-red-700 transition-all duration-200 ${
@@ -291,7 +323,6 @@ const Dashboard: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 p-8 overflow-y-auto">
         <div className="max-w-5xl">
-          {/* Header */}
           <header className="mb-8">
             <h2 className="text-4xl font-bold tracking-wide animate-fade-in-down">
               {activeTab === "detect"
@@ -303,17 +334,28 @@ const Dashboard: React.FC = () => {
             <p className="text-gray-400 mt-2">Advanced tools for your Farming needs</p>
           </header>
 
-          {/* Content Sections */}
           {activeTab === "detect" && (
             <section className="bg-gray-800 p-6 rounded-2xl shadow-xl animate-slide-up">
               <h3 className="text-2xl font-semibold mb-4">Upload Leaf Image</h3>
               <div className="relative">
+                <button
+                  onClick={() => triggerFileInput(leafInputRef)}
+                  className={`w-full p-3 bg-gray-700 rounded-lg text-white font-medium flex items-center justify-center space-x-2 transition-all duration-200 ${
+                    isProcessing
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:bg-gray-600 hover:border-green-500 border border-gray-600"
+                  }`}
+                  disabled={isProcessing}
+                >
+                  <FaLeaf className="text-xl" />
+                  <span>Choose Leaf Image</span>
+                </button>
                 <input
                   type="file"
                   accept="image/*"
+                  ref={leafInputRef}
                   onChange={handleImageUpload}
-                  className="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 hover:border-green-500 transition-all duration-200"
-                  disabled={isProcessing}
+                  className="hidden"
                 />
                 {isProcessing && (
                   <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 rounded-lg">
@@ -345,12 +387,24 @@ const Dashboard: React.FC = () => {
             <section className="bg-gray-800 p-6 rounded-2xl shadow-xl animate-slide-up">
               <h3 className="text-2xl font-semibold mb-4">Retrain Model</h3>
               <div className="relative">
+                <button
+                  onClick={() => triggerFileInput(zipInputRef)}
+                  className={`w-full p-3 bg-gray-700 rounded-lg text-white font-medium flex items-center justify-center space-x-2 transition-all duration-200 ${
+                    isProcessing
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:bg-gray-600 hover:border-green-500 border border-gray-600"
+                  }`}
+                  disabled={isProcessing}
+                >
+                  <FaSync className="text-xl" />
+                  <span>Choose Zip File</span>
+                </button>
                 <input
                   type="file"
                   accept=".zip"
+                  ref={zipInputRef}
                   onChange={handleZipUpload}
-                  className="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 hover:border-green-500 transition-all duration-200"
-                  disabled={isProcessing}
+                  className="hidden"
                 />
                 {isProcessing && (
                   <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 rounded-lg">
@@ -390,8 +444,6 @@ const Dashboard: React.FC = () => {
           {activeTab === "history" && (
             <section className="bg-gray-800 p-6 rounded-2xl shadow-xl animate-slide-up">
               <h3 className="text-2xl font-semibold mb-6">Activity History</h3>
-
-              {/* Prediction History */}
               <div className="mb-8">
                 <h4 className="text-xl font-medium mb-3 text-green-400">Prediction History</h4>
                 {predictionHistory.length > 0 ? (
@@ -411,8 +463,6 @@ const Dashboard: React.FC = () => {
                   <p className="text-gray-400">No predictions recorded yet.</p>
                 )}
               </div>
-
-              {/* Retrain History */}
               <div>
                 <h4 className="text-xl font-medium mb-3 text-green-400">Retrain History</h4>
                 {retrainHistory.length > 0 ? (
@@ -438,42 +488,20 @@ const Dashboard: React.FC = () => {
 
       <style>{`
         @keyframes fade-in-down {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(-20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         @keyframes slide-up {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         @keyframes fade-in {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
-        .animate-fade-in-down {
-          animation: fade-in-down 0.5s ease-out;
-        }
-        .animate-slide-up {
-          animation: slide-up 0.5s ease-out;
-        }
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out;
-        }
+        .animate-fade-in-down { animation: fade-in-down 0.5s ease-out; }
+        .animate-slide-up { animation: slide-up 0.5s ease-out; }
+        .animate-fade-in { animation: fade-in 0.5s ease-out; }
       `}</style>
     </div>
   );
