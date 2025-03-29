@@ -22,7 +22,7 @@ const Dashboard: React.FC = () => {
   }>({ classification_report: null, confusion_matrix: null });
 
   // Base URL for API
-  const API_BASE_URL = "https://plantdiseasedetectionapp.onrender.com";
+  const API_BASE_URL = "https://appdeploy-production.up.railway.app";
 
   // Get token from localStorage
   const getToken = () => localStorage.getItem("token");
