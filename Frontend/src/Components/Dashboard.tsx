@@ -2,6 +2,7 @@ import React, { useState, ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaLeaf, FaSync, FaHistory, FaSignOutAlt, FaArrowLeft } from "react-icons/fa";
 import Swal from "sweetalert2";
+import { DISEASE_TREATMENTS } from "./diseaseTreatments";
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -9,7 +10,7 @@ const Dashboard: React.FC = () => {
   const [leafImage, setLeafImage] = useState<File | null>(null);
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [predictionHistory, setPredictionHistory] = useState<
-    { id: number; text: string; date: string }[]
+    { id: number; text: string; treatment: string; date: string }[]
   >([]);
   const [retrainHistory, setRetrainHistory] = useState<
     { id: number; text: string; date: string }[]
@@ -34,13 +35,13 @@ const Dashboard: React.FC = () => {
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-  
+
     setLeafImage(file);
     setIsProcessing(true);
-  
+
     const formData = new FormData();
     formData.append("file", file); // Backend expects "file" field
-  
+
     try {
       const response = await fetch(`${API_BASE_URL}/predict`, {
         method: "POST",
@@ -49,25 +50,29 @@ const Dashboard: React.FC = () => {
         },
         body: formData,
       });
-  
+
       if (!response.ok) {
         throw new Error("Prediction failed");
       }
-  
+
       const data = await response.json();
-      const confidencePercentage = Number((data.confidence * 100).toFixed(2)); // Convert to percentage and round to 2 decimal places
+      const confidencePercentage = Number((data.confidence * 100).toFixed(2)); // Convert to percentage
+      const predictedDisease = data.prediction || "healthy"; // Default to "healthy" if no prediction
+      const treatment = DISEASE_TREATMENTS[predictedDisease] || "No specific treatment available.";
+
       const prediction = {
         id: Date.now(), // Temporary ID, will be replaced by backend ID in history
-        text: `Predicted disease for ${file.name}: ${data.prediction || "Healthy"} (${confidencePercentage}%)`,
+        text: `Predicted disease for ${file.name}: ${predictedDisease} (${confidencePercentage}%)`,
+        treatment: treatment,
         date: new Date().toLocaleString(),
       };
       setPredictionHistory((prev) => [...prev, prediction]);
-  
+
       Swal.fire({
         icon: "success",
         title: "Prediction Successful",
-        text: `Disease predicted: ${data.prediction || "Healthy"} with ${confidencePercentage}% confidence`,
-        timer: 2000,
+        html: `Disease predicted: ${predictedDisease} with ${confidencePercentage}% confidence<br><strong>Treatment:</strong> ${treatment}`,
+        timer: 3000,
         showConfirmButton: false,
       });
     } catch (error) {
@@ -158,7 +163,8 @@ const Dashboard: React.FC = () => {
         data.map((item: any) => ({
           id: item.id,
           text: item.text,
-          date: new Date(item.date).toLocaleString(), // Convert ISO string to local time
+          treatment: item.treatment || DISEASE_TREATMENTS[item.text.split(": ")[1]?.split(" (")[0]] || "No treatment recorded.",
+          date: new Date(item.date).toLocaleString(),
         }))
       );
     } catch (error) {
@@ -190,7 +196,7 @@ const Dashboard: React.FC = () => {
         data.map((item: any) => ({
           id: item.id,
           text: item.text,
-          date: new Date(item.date).toLocaleString(), // Convert ISO string to local time
+          date: new Date(item.date).toLocaleString(),
         }))
       );
     } catch (error) {
@@ -322,6 +328,9 @@ const Dashboard: React.FC = () => {
                     Prediction:{" "}
                     {predictionHistory[predictionHistory.length - 1]?.text.split(": ")[1] || "Healthy"}
                   </p>
+                  <p className="mt-2 text-gray-300">
+                    Treatment: {predictionHistory[predictionHistory.length - 1]?.treatment || "No treatment available."}
+                  </p>
                   <img
                     src={URL.createObjectURL(leafImage)}
                     alt="Leaf Preview"
@@ -393,6 +402,7 @@ const Dashboard: React.FC = () => {
                         className="p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-all duration-200"
                       >
                         <p>{entry.text}</p>
+                        <p className="text-sm text-gray-300">Treatment: {entry.treatment}</p>
                         <p className="text-sm text-gray-400">{entry.date}</p>
                       </li>
                     ))}
