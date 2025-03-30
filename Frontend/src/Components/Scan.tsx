@@ -33,7 +33,7 @@ const ScanModal: React.FC<ScanModalProps> = ({ isOpen, onClose }) => {
     formData.append("file", selectedFile);
   
     try {
-      const response = await fetch("https://appdeploy-production.up.railway.app/predict", {
+      const response = await fetch("https://appdeploy-production.up.railway.app /predict", {
         method: "POST",
         body: formData,
       });
