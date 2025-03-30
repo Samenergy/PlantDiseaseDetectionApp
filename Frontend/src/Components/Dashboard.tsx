@@ -20,14 +20,21 @@ const Dashboard: React.FC = () => {
   const [visualizationImages, setVisualizationImages] = useState<{
     classification_report: string | null;
     confusion_matrix: string | null;
-  }>({ classification_report: null, confusion_matrix: null });
+    loss_plot: string | null;
+    accuracy_plot: string | null;
+  }>({
+    classification_report: null,
+    confusion_matrix: null,
+    loss_plot: null,
+    accuracy_plot: null,
+  });
 
   // Refs for file inputs
   const leafInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
 
-  // Base URL for API
-  const API_BASE_URL = "http://127.0.0.1:8000";
+  // Base URL for API (configurable via environment variable for cloud deployment)
+  const API_BASE_URL ="http://127.0.0.1:8000";
 
   // Get token from localStorage
   const getToken = () => localStorage.getItem("token");
@@ -50,7 +57,7 @@ const Dashboard: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) {
       console.log("No file selected");
-      setIsProcessing(false); // Reset in case no file is picked
+      setIsProcessing(false);
       return;
     }
 
@@ -152,9 +159,12 @@ const Dashboard: React.FC = () => {
       };
       setRetrainHistory((prev) => [...prev, retrainLog]);
 
+      // Update visualization images with all available plots
       setVisualizationImages({
         classification_report: data.visualization_files.classification_report,
         confusion_matrix: data.visualization_files.confusion_matrix,
+        loss_plot: data.visualization_files.loss_plot,
+        accuracy_plot: data.visualization_files.accuracy_plot,
       });
 
       Swal.fire({
@@ -432,6 +442,26 @@ const Dashboard: React.FC = () => {
                       <img
                         src={visualizationImages.confusion_matrix}
                         alt="Confusion Matrix"
+                        className="mt-2 max-w-full rounded-lg shadow-md"
+                      />
+                    </div>
+                  )}
+                  {visualizationImages.loss_plot && (
+                    <div className="mt-4">
+                      <h4 className="text-lg font-medium text-green-400">Loss Plot</h4>
+                      <img
+                        src={visualizationImages.loss_plot}
+                        alt="Loss Plot"
+                        className="mt-2 max-w-full rounded-lg shadow-md"
+                      />
+                    </div>
+                  )}
+                  {visualizationImages.accuracy_plot && (
+                    <div className="mt-4">
+                      <h4 className="text-lg font-medium text-green-400">Accuracy Plot</h4>
+                      <img
+                        src={visualizationImages.accuracy_plot}
+                        alt="Accuracy Plot"
                         className="mt-2 max-w-full rounded-lg shadow-md"
                       />
                     </div>
