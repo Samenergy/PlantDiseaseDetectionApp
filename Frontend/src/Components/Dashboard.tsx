@@ -13,7 +13,7 @@ const Dashboard: React.FC = () => {
     { id: number; text: string; treatment: string; date: string }[]
   >([]);
   const [retrainHistory, setRetrainHistory] = useState<
-    { id: number; text: string; date: string }[]
+    { id: number; text: string; date: string; metrics?: any }[]
   >([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -29,39 +29,36 @@ const Dashboard: React.FC = () => {
     accuracy_plot: null,
   });
 
-  // Refs for file inputs
   const leafInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
 
-  // Base URL for API (configurable via environment variable for cloud deployment)
-  const API_BASE_URL ="https://appdeploy-production.up.railway.app";
-
-  // Get token from localStorage
+  const API_BASE_URL = "https://appdeploy-production.up.railway.app";
   const getToken = () => localStorage.getItem("token");
 
-  // Toggle sidebar collapse
-  const toggleSidebar = () => setIsSidebarCollapsed((prev) => !prev);
-
-  // Trigger file input click with debugging
-  const triggerFileInput = (ref: React.RefObject<HTMLInputElement>) => {
-    console.log("Triggering file input:", ref.current);
-    if (ref.current) {
-      ref.current.click();
-    } else {
-      console.error("File input ref is null or undefined");
+  const fetchWithAuth = async (url: string, options: RequestInit) => {
+    const response = await fetch(url, options);
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      navigate("/login");
+      Swal.fire({
+        icon: "error",
+        title: "Session Expired",
+        text: "Please log in again.",
+      });
+      throw new Error("Unauthorized");
     }
+    return response;
   };
 
-  // Handle image upload with /predict API
+  const toggleSidebar = () => setIsSidebarCollapsed((prev) => !prev);
+  const triggerFileInput = (ref: React.RefObject<HTMLInputElement>) => {
+    if (ref.current) ref.current.click();
+  };
+
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) {
-      console.log("No file selected");
-      setIsProcessing(false);
-      return;
-    }
+    if (!file) return;
 
-    console.log("File selected:", file.name);
     setLeafImage(file);
     setIsProcessing(true);
 
@@ -69,23 +66,18 @@ const Dashboard: React.FC = () => {
     formData.append("file", file);
 
     try {
-      console.log("Sending request to /predict");
-      const response = await fetch(`${API_BASE_URL}/predict`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/predict`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${getToken()}`,
-        },
+        headers: { Authorization: `Bearer ${getToken()}` },
         body: formData,
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Prediction failed: ${errorText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Prediction failed");
       }
 
       const data = await response.json();
-      console.log("Prediction response:", data);
-
       const confidencePercentage = Number((data.confidence * 100).toFixed(2));
       const predictedDisease = data.prediction || "healthy";
       const treatment = DISEASE_TREATMENTS[predictedDisease] || "No specific treatment available.";
@@ -93,7 +85,7 @@ const Dashboard: React.FC = () => {
       const prediction = {
         id: Date.now(),
         text: `Predicted disease for ${file.name}: ${predictedDisease} (${confidencePercentage}%)`,
-        treatment: treatment,
+        treatment,
         date: new Date().toLocaleString(),
       };
       setPredictionHistory((prev) => [...prev, prediction]);
@@ -106,28 +98,16 @@ const Dashboard: React.FC = () => {
         showConfirmButton: false,
       });
     } catch (error: any) {
-      console.error("Error during prediction:", error.message);
-      Swal.fire({
-        icon: "error",
-        title: "Prediction Failed",
-        text: "Unable to process the image. Please try again.",
-      });
+      Swal.fire({ icon: "error", title: "Prediction Failed", text: error.message });
     } finally {
       setIsProcessing(false);
-      console.log("Processing finished");
     }
   };
 
-  // Handle zip file upload with /retrain API
   const handleZipUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) {
-      console.log("No file selected");
-      setIsProcessing(false);
-      return;
-    }
+    if (!file) return;
 
-    console.log("File selected:", file.name);
     setZipFile(file);
     setIsProcessing(true);
 
@@ -135,127 +115,94 @@ const Dashboard: React.FC = () => {
     formData.append("files", file);
 
     try {
-      console.log("Sending request to /retrain");
-      const response = await fetch(`${API_BASE_URL}/retrain`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/retrain`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${getToken()}`,
-        },
+        headers: { Authorization: `Bearer ${getToken()}` },
         body: formData,
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Retraining failed");
+        throw new Error(errorData.error || errorData.detail || "Retraining failed");
       }
 
       const data = await response.json();
-      console.log("Retraining response:", data);
-
       const retrainLog = {
         id: data.retraining_id || Date.now(),
-        text: `Model retrained with ${file.name} (${data.num_classes} classes)`,
+        text: `Model retrained with ${file.name} (${data.num_classes} classes, Training: ${data.training_accuracy?.toFixed(
+          2
+        )}%, Validation: ${data.validation_accuracy?.toFixed(2) || "N/A"}%)`,
         date: new Date().toLocaleString(),
+        metrics: data.class_metrics,
       };
       setRetrainHistory((prev) => [...prev, retrainLog]);
-
-      // Update visualization images with all available plots
-      setVisualizationImages({
-        classification_report: data.visualization_files.classification_report,
-        confusion_matrix: data.visualization_files.confusion_matrix,
-        loss_plot: data.visualization_files.loss_plot,
-        accuracy_plot: data.visualization_files.accuracy_plot,
-      });
+      setVisualizationImages(data.visualization_files);
 
       Swal.fire({
         icon: "success",
         title: "Retraining Successful",
-        text: data.message || "Model has been retrained successfully!",
+        text: data.message,
         timer: 2000,
         showConfirmButton: false,
       });
     } catch (error: any) {
-      console.error("Error during retraining:", error.message);
-      Swal.fire({
-        icon: "error",
-        title: "Retraining Failed",
-        text: error.message || "Unable to retrain the model. Please try again.",
-      });
+      Swal.fire({ icon: "error", title: "Retraining Failed", text: error.message });
     } finally {
       setIsProcessing(false);
-      console.log("Processing finished");
     }
   };
 
-  // Fetch prediction history from /prediction_history API
   const fetchPredictionHistory = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/prediction_history`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/prediction_history`, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${getToken()}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" },
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch prediction history");
-      }
+      if (!response.ok) throw new Error("Failed to fetch prediction history");
 
       const data = await response.json();
       setPredictionHistory(
-        data.map((item: any) => ({
-          id: item.id,
-          text: item.text,
-          treatment:
-            item.treatment ||
-            DISEASE_TREATMENTS[item.text.split(": ")[1]?.split(" (")[0]] ||
-            "No treatment recorded.",
-          date: new Date(item.date).toLocaleString(),
-        }))
+        data.map((item: any) => {
+          const disease = item.text.split(": ")[1] || "healthy";
+          return {
+            id: item.id,
+            text: item.text,
+            treatment: DISEASE_TREATMENTS[disease] || "No treatment recorded.",
+            date: new Date(item.date).toLocaleString(),
+          };
+        })
       );
-    } catch (error) {
-      Swal.fire({
-        icon: "error",
-        title: "History Fetch Failed",
-        text: "Unable to load prediction history.",
-      });
+    } catch (error: any) {
+      Swal.fire({ icon: "error", title: "History Fetch Failed", text: error.message });
     }
   };
 
-  // Fetch retraining history from /retraining_history API
   const fetchRetrainHistory = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/retraining_history`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/retraining_history`, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${getToken()}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" },
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch retraining history");
-      }
+      if (!response.ok) throw new Error("Failed to fetch retraining history");
 
       const data = await response.json();
       setRetrainHistory(
         data.map((item: any) => ({
           id: item.id,
-          text: item.text,
+          text: `${item.text} (Training: ${item.training_accuracy?.toFixed(2) || "N/A"}%, Validation: ${
+            item.validation_accuracy?.toFixed(2) || "N/A"
+          }%)`,
           date: new Date(item.date).toLocaleString(),
+          metrics: item.class_metrics,
         }))
       );
-    } catch (error) {
-      Swal.fire({
-        icon: "error",
-        title: "History Fetch Failed",
-        text: "Unable to load retraining history.",
-      });
+    } catch (error: any) {
+      Swal.fire({ icon: "error", title: "History Fetch Failed", text: error.message });
     }
   };
 
-  // Load history when switching to "history" tab
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     if (tab === "history") {
@@ -264,7 +211,6 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Logout with animation
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/login");
@@ -277,9 +223,19 @@ const Dashboard: React.FC = () => {
     });
   };
 
+  const VisualizationSection = ({ title, url }: { title: string; url: string | null }) => (
+    <div className="mt-4">
+      <h4 className="text-lg font-medium text-green-400">{title}</h4>
+      {url ? (
+        <img src={url} alt={title} className="mt-2 max-w-full rounded-lg shadow-md" />
+      ) : (
+        <p className="text-gray-400 mt-2">Not available</p>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white flex">
-      {/* Sidebar */}
       <aside
         className={`bg-gray-800 shadow-2xl p-6 flex flex-col justify-between transition-all duration-300 ${
           isSidebarCollapsed ? "w-24" : "w-64"
@@ -330,7 +286,6 @@ const Dashboard: React.FC = () => {
         </button>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 p-8 overflow-y-auto">
         <div className="max-w-5xl">
           <header className="mb-8">
@@ -426,46 +381,10 @@ const Dashboard: React.FC = () => {
                 <div className="mt-4 p-4 bg-gray-700 rounded-lg animate-fade-in">
                   <p className="text-green-400">Uploaded: {zipFile.name}</p>
                   <p className="mt-2 text-gray-300">Status: Retraining Complete</p>
-                  {visualizationImages.classification_report && (
-                    <div className="mt-4">
-                      <h4 className="text-lg font-medium text-green-400">Classification Report</h4>
-                      <img
-                        src={visualizationImages.classification_report}
-                        alt="Classification Report"
-                        className="mt-2 max-w-full rounded-lg shadow-md"
-                      />
-                    </div>
-                  )}
-                  {visualizationImages.confusion_matrix && (
-                    <div className="mt-4">
-                      <h4 className="text-lg font-medium text-green-400">Confusion Matrix</h4>
-                      <img
-                        src={visualizationImages.confusion_matrix}
-                        alt="Confusion Matrix"
-                        className="mt-2 max-w-full rounded-lg shadow-md"
-                      />
-                    </div>
-                  )}
-                  {visualizationImages.loss_plot && (
-                    <div className="mt-4">
-                      <h4 className="text-lg font-medium text-green-400">Loss Plot</h4>
-                      <img
-                        src={visualizationImages.loss_plot}
-                        alt="Loss Plot"
-                        className="mt-2 max-w-full rounded-lg shadow-md"
-                      />
-                    </div>
-                  )}
-                  {visualizationImages.accuracy_plot && (
-                    <div className="mt-4">
-                      <h4 className="text-lg font-medium text-green-400">Accuracy Plot</h4>
-                      <img
-                        src={visualizationImages.accuracy_plot}
-                        alt="Accuracy Plot"
-                        className="mt-2 max-w-full rounded-lg shadow-md"
-                      />
-                    </div>
-                  )}
+                  <VisualizationSection title="Classification Report" url={visualizationImages.classification_report} />
+                  <VisualizationSection title="Confusion Matrix" url={visualizationImages.confusion_matrix} />
+                  <VisualizationSection title="Loss Plot" url={visualizationImages.loss_plot} />
+                  <VisualizationSection title="Accuracy Plot" url={visualizationImages.accuracy_plot} />
                 </div>
               )}
             </section>
@@ -503,6 +422,11 @@ const Dashboard: React.FC = () => {
                         className="p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-all duration-200"
                       >
                         <p>{entry.text}</p>
+                        {entry.metrics && (
+                          <p className="text-sm text-gray-300">
+                            Metrics: {JSON.stringify(entry.metrics, null, 2)}
+                          </p>
+                        )}
                         <p className="text-sm text-gray-400">{entry.date}</p>
                       </li>
                     ))}
