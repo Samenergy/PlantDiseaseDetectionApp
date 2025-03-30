@@ -34,7 +34,7 @@ const Dashboard: React.FC = () => {
   const zipInputRef = useRef<HTMLInputElement>(null);
 
   // Base URL for API (configurable via environment variable for cloud deployment)
-  const API_BASE_URL ="http://127.0.0.1:8000";
+  const API_BASE_URL ="https://appdeploy-production.up.railway.app";
 
   // Get token from localStorage
   const getToken = () => localStorage.getItem("token");
