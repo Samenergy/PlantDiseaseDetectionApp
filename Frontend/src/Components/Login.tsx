@@ -18,7 +18,7 @@ const Login: React.FC = () => {
     setError("");
 
     try {
-      const response = await fetch("https://appdeploy-production.up.railway.app/token", {
+      const response = await fetch("http://127.0.0.1:8000/token", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",

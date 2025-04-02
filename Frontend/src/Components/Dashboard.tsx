@@ -1,4 +1,4 @@
-import React, { useState, ChangeEvent, useRef } from "react";
+import React, { useState, useEffect, ChangeEvent, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaLeaf, FaSync, FaHistory, FaSignOutAlt, FaArrowLeft } from "react-icons/fa";
 import Swal from "sweetalert2";
@@ -28,13 +28,17 @@ const Dashboard: React.FC = () => {
     loss_plot: null,
     accuracy_plot: null,
   });
+  const [retrainProgress, setRetrainProgress] = useState<number>(0); // Progress percentage
 
   // Refs for file inputs
   const leafInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
 
-  // Base URL for API (configurable via environment variable for cloud deployment)
-  const API_BASE_URL = "https://appdeploy-production.up.railway.app";
+  // WebSocket reference
+  const wsRef = useRef<WebSocket | null>(null);
+
+  // Base URL for API
+  const API_BASE_URL = "http://127.0.0.1:8000";
 
   // Get token from localStorage
   const getToken = () => localStorage.getItem("token");
@@ -42,12 +46,32 @@ const Dashboard: React.FC = () => {
   // Toggle sidebar collapse
   const toggleSidebar = () => setIsSidebarCollapsed((prev) => !prev);
 
-  // Trigger file input click with corrected type
+  // Trigger file input click
   const triggerFileInput = (ref: React.RefObject<HTMLInputElement | null>) => {
     if (ref.current) {
       ref.current.click();
     }
   };
+
+  // WebSocket connection setup
+  useEffect(() => {
+    const ws = new WebSocket(`ws://127.0.0.1:8000/ws/retrain-progress`);
+    wsRef.current = ws;
+
+    ws.onopen = () => console.log("WebSocket connected");
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.progress !== undefined) {
+        setRetrainProgress(data.progress);
+      }
+    };
+    ws.onerror = (error) => console.error("WebSocket error:", error);
+    ws.onclose = () => console.log("WebSocket disconnected");
+
+    return () => {
+      ws.close();
+    };
+  }, []);
 
   // Handle image upload with /predict API
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -119,6 +143,7 @@ const Dashboard: React.FC = () => {
 
     setZipFile(file);
     setIsProcessing(true);
+    setRetrainProgress(0); // Reset progress
 
     const formData = new FormData();
     formData.append("files", file);
@@ -146,7 +171,6 @@ const Dashboard: React.FC = () => {
       };
       setRetrainHistory((prev) => [...prev, retrainLog]);
 
-      // Update visualization images with URLs from the response
       setVisualizationImages({
         classification_report: data.visualization_files.classification_report,
         confusion_matrix: data.visualization_files.confusion_matrix,
@@ -169,6 +193,7 @@ const Dashboard: React.FC = () => {
       });
     } finally {
       setIsProcessing(false);
+      setRetrainProgress(100); // Set to 100% when complete
     }
   };
 
@@ -406,6 +431,17 @@ const Dashboard: React.FC = () => {
                   </div>
                 )}
               </div>
+              {isProcessing && (
+                <div className="mt-4">
+                  <p className="text-gray-300">Retraining Progress: {retrainProgress}%</p>
+                  <div className="w-full bg-gray-700 rounded-full h-4 mt-2">
+                    <div
+                      className="bg-green-500 h-4 rounded-full transition-all duration-300"
+                      style={{ width: `${retrainProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
               {zipFile && !isProcessing && (
                 <div className="mt-4 p-4 bg-gray-700 rounded-lg animate-fade-in">
                   <p className="text-green-400">Uploaded: {zipFile.name}</p>
