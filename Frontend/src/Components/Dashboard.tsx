@@ -38,7 +38,7 @@ const Dashboard: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
 
   // Base URL for API
-  const API_BASE_URL = "http://127.0.0.1:8000";
+  const API_BASE_URL = "https://appdeploy-production.up.railway.app";
 
   // Get token from localStorage
   const getToken = () => localStorage.getItem("token");
