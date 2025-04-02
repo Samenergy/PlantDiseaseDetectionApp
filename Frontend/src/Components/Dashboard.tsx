@@ -55,7 +55,7 @@ const Dashboard: React.FC = () => {
 
   // WebSocket connection setup
   useEffect(() => {
-    const ws = new WebSocket(`ws://127.0.0.1:8000/ws/retrain-progress`);
+    const ws = new WebSocket(`wss://appdeploy-production.up.railway.app/ws/retrain-progress`);
     wsRef.current = ws;
 
     ws.onopen = () => console.log("WebSocket connected");
