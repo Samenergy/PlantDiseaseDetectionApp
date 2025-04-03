@@ -45,7 +45,7 @@ const Login: React.FC = () => {
 
   // Function to fill demo credentials
   const fillDemoCredentials = () => {
-    setEmail("marvin@teacher.com");
+    setEmail("samueld@alustudent.com");
     setPassword("123");
   };
 
