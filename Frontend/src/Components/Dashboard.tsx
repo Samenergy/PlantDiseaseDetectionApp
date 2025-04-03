@@ -1,6 +1,6 @@
 import React, { useState, useEffect, ChangeEvent, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaLeaf, FaSync, FaHistory, FaSignOutAlt, FaArrowLeft } from "react-icons/fa";
+import { FaLeaf, FaSync, FaHistory, FaSignOutAlt, FaArrowLeft, FaUpload } from "react-icons/fa";
 import Swal from "sweetalert2";
 import { DISEASE_TREATMENTS } from "./diseaseTreatments";
 
@@ -9,6 +9,8 @@ const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("detect");
   const [leafImage, setLeafImage] = useState<File | null>(null);
   const [zipFile, setZipFile] = useState<File | null>(null);
+  const [hasZipInMongo, setHasZipInMongo] = useState<boolean>(false);
+  const [zipId, setZipId] = useState<string | null>(null);
   const [predictionHistory, setPredictionHistory] = useState<
     { id: number; text: string; treatment: string; date: string }[]
   >([]);
@@ -28,34 +30,27 @@ const Dashboard: React.FC = () => {
     loss_plot: null,
     accuracy_plot: null,
   });
-  const [retrainProgress, setRetrainProgress] = useState<number>(0); // Progress percentage
+  const [retrainProgress, setRetrainProgress] = useState<number>(0);
 
-  // Refs for file inputs
   const leafInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
 
-  // WebSocket reference
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Base URL for API
   const API_BASE_URL = "https://appdeploy-production.up.railway.app";
 
-  // Get token from localStorage
   const getToken = () => localStorage.getItem("token");
 
-  // Toggle sidebar collapse
   const toggleSidebar = () => setIsSidebarCollapsed((prev) => !prev);
 
-  // Trigger file input click
   const triggerFileInput = (ref: React.RefObject<HTMLInputElement | null>) => {
     if (ref.current) {
       ref.current.click();
     }
   };
 
-  // WebSocket connection setup
   useEffect(() => {
-    const ws = new WebSocket(`wss://appdeploy-production.up.railway.app/ws/retrain-progress`);
+    const ws = new WebSocket(`ws://${API_BASE_URL.split("://")[1]}/ws/retrain-progress`);
     wsRef.current = ws;
 
     ws.onopen = () => console.log("WebSocket connected");
@@ -73,7 +68,48 @@ const Dashboard: React.FC = () => {
     };
   }, []);
 
-  // Handle image upload with /predict API
+  useEffect(() => {
+    const checkZipInMongo = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/zip_data`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to check zip data");
+        }
+
+        const data = await response.json();
+        if (data.zip_id) {
+          setHasZipInMongo(true);
+          setZipId(data.zip_id);
+          Swal.fire({
+            icon: "info",
+            title: "Zip Data Found",
+            text: `Existing zip file detected (ID: ${data.zip_id}). You can proceed with retraining.`,
+            timer: 5000,
+            showConfirmButton: false,
+          });
+        } else {
+          setHasZipInMongo(false);
+          setZipId(null);
+        }
+      } catch (error) {
+        console.error("Error checking zip in MongoDB:", error);
+        setHasZipInMongo(false);
+        setZipId(null);
+      }
+    };
+
+    if (activeTab === "retrain") {
+      checkZipInMongo();
+    }
+  }, [activeTab]);
+
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
@@ -133,8 +169,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Handle zip file upload with /retrain API
-  const handleZipUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+  const handleZipUploadToMongo = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
       setIsProcessing(false);
@@ -143,18 +178,79 @@ const Dashboard: React.FC = () => {
 
     setZipFile(file);
     setIsProcessing(true);
-    setRetrainProgress(0); // Reset progress
 
     const formData = new FormData();
-    formData.append("files", file);
+    formData.append("file", file);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/upload-zip-to-mongo`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to upload zip file");
+      }
+
+      const data = await response.json();
+      setZipId(data.zip_id);
+      setHasZipInMongo(true);
+
+      Swal.fire({
+        icon: "success",
+        title: "Upload Successful",
+        text: "Zip file uploaded to MongoDB. Starting retraining...",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
+      await handleRetrain();
+    } catch (error: any) {
+      Swal.fire({
+        icon: "error",
+        title: "Upload Failed",
+        text: error.message || "Unable to upload the zip file. Please try again.",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRetrain = async () => {
+    if (!zipId) {
+      Swal.fire({
+        icon: "warning",
+        title: "No Zip File",
+        text: "Please upload a zip file first.",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    setRetrainProgress(0);
+    setVisualizationImages({
+      classification_report: null,
+      confusion_matrix: null,
+      loss_plot: null,
+      accuracy_plot: null,
+    });
 
     try {
       const response = await fetch(`${API_BASE_URL}/retrain`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${getToken()}`,
+          "Content-Type": "application/json",
         },
-        body: formData,
+        body: JSON.stringify({
+          zip_id: zipId,
+          learning_rate: 0.0001,
+          epochs: 10,
+        }),
       });
 
       if (!response.ok) {
@@ -166,11 +262,12 @@ const Dashboard: React.FC = () => {
 
       const retrainLog = {
         id: data.retraining_id || Date.now(),
-        text: `Model retrained with ${file.name} (${data.num_classes} classes)`,
+        text: `Model retrained with ${zipFile?.name || "stored zip"} (${data.num_classes} classes)`,
         date: new Date().toLocaleString(),
       };
       setRetrainHistory((prev) => [...prev, retrainLog]);
 
+      // Ensure visualization images are set correctly
       setVisualizationImages({
         classification_report: data.visualization_files.classification_report,
         confusion_matrix: data.visualization_files.confusion_matrix,
@@ -181,7 +278,7 @@ const Dashboard: React.FC = () => {
       Swal.fire({
         icon: "success",
         title: "Retraining Successful",
-        text: data.message || "Model has been retrained successfully!",
+        text: data.message || "Model has been retrained successfully! Visualizations are available below.",
         timer: 2000,
         showConfirmButton: false,
       });
@@ -193,11 +290,10 @@ const Dashboard: React.FC = () => {
       });
     } finally {
       setIsProcessing(false);
-      setRetrainProgress(100); // Set to 100% when complete
+      setRetrainProgress(100);
     }
   };
 
-  // Fetch prediction history from /prediction_history API
   const fetchPredictionHistory = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/prediction_history`, {
@@ -232,7 +328,6 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Fetch retraining history from /retraining_history API
   const fetchRetrainHistory = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/retraining_history`, {
@@ -264,7 +359,6 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Load history when switching to "history" tab
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     if (tab === "history") {
@@ -273,7 +367,6 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Logout with animation
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/login");
@@ -288,7 +381,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white flex">
-      {/* Sidebar */}
       <aside
         className={`bg-gray-800 shadow-2xl p-6 flex flex-col justify-between transition-all duration-300 ${
           isSidebarCollapsed ? "w-24" : "w-64"
@@ -339,7 +431,6 @@ const Dashboard: React.FC = () => {
         </button>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 p-8 overflow-y-auto">
         <div className="max-w-5xl">
           <header className="mb-8">
@@ -405,32 +496,51 @@ const Dashboard: React.FC = () => {
           {activeTab === "retrain" && (
             <section className="bg-gray-800 p-6 rounded-2xl shadow-xl animate-slide-up">
               <h3 className="text-2xl font-semibold mb-4">Retrain Model</h3>
-              <div className="relative">
-                <button
-                  onClick={() => triggerFileInput(zipInputRef)}
-                  className={`w-full p-3 bg-gray-700 rounded-lg text-white font-medium flex items-center justify-center space-x-2 transition-all duration-200 ${
-                    isProcessing
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:bg-gray-600 hover:border-green-500 border border-gray-600"
-                  }`}
-                  disabled={isProcessing}
-                >
-                  <FaSync className="text-xl" />
-                  <span>Choose Zip File</span>
-                </button>
-                <input
-                  type="file"
-                  accept=".zip"
-                  ref={zipInputRef}
-                  onChange={handleZipUpload}
-                  className="hidden"
-                />
-                {isProcessing && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 rounded-lg">
-                    <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                )}
-              </div>
+              {!hasZipInMongo ? (
+                <div className="relative">
+                  <button
+                    onClick={() => triggerFileInput(zipInputRef)}
+                    className={`w-full p-3 bg-gray-700 rounded-lg text-white font-medium flex items-center justify-center space-x-2 transition-all duration-200 ${
+                      isProcessing
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:bg-gray-600 hover:border-green-500 border border-gray-600"
+                    }`}
+                    disabled={isProcessing}
+                  >
+                    <FaUpload className="text-xl" />
+                    <span>Upload Zip File</span>
+                  </button>
+                  <input
+                    type="file"
+                    accept=".zip"
+                    ref={zipInputRef}
+                    onChange={handleZipUploadToMongo}
+                    className="hidden"
+                  />
+                  {isProcessing && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 rounded-lg">
+                      <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                  <p className="mt-2 text-gray-400">Please upload a zip file containing train and val folders.</p>
+                </div>
+              ) : (
+                <div>
+                  <button
+                    onClick={handleRetrain}
+                    className={`w-full p-3 bg-gray-700 rounded-lg text-white font-medium flex items-center justify-center space-x-2 transition-all duration-200 ${
+                      isProcessing
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:bg-gray-600 hover:border-green-500 border border-gray-600"
+                    }`}
+                    disabled={isProcessing}
+                  >
+                    <FaSync className="text-xl" />
+                    <span>Retrain Model</span>
+                  </button>
+                  <p className="mt-2 text-gray-400">Using previously uploaded zip file (ID: {zipId}).</p>
+                </div>
+              )}
               {isProcessing && (
                 <div className="mt-4">
                   <p className="text-gray-300">Retraining Progress: {retrainProgress}%</p>
@@ -442,9 +552,9 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
               )}
-              {zipFile && !isProcessing && (
+              {(zipFile || hasZipInMongo) && !isProcessing && (
                 <div className="mt-4 p-4 bg-gray-700 rounded-lg animate-fade-in">
-                  <p className="text-green-400">Uploaded: {zipFile.name}</p>
+                  <p className="text-green-400">Uploaded: {zipFile?.name || "Stored Zip File"}</p>
                   <p className="mt-2 text-gray-300">Status: Retraining Complete</p>
                   {visualizationImages.classification_report && (
                     <div className="mt-4">
