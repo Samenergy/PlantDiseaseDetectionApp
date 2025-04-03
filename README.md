@@ -9,9 +9,9 @@ LeafSense is an advanced plant disease detection application using deep learning
 
 ## 🔗 Links
 
-- **Frontend**: [https://leaf-sense.vercel.app](https://leaf-sense.vercel.app)
-- **Backend API**: [https://plant-disease-backend.onrender.com](https://plant-disease-backend.onrender.com)
-- **API Documentation**: [https://plant-disease-backend.onrender.com/docs](https://plant-disease-backend.onrender.com/docs)
+- **Frontend**: [https://leafsense.vercel.app](https://leafsense.vercel.app)
+- **Backend API**: [https://appdeploy-production.up.railway.app](https://appdeploy-production.up.railway.app)
+- **API Documentation**: [https://appdeploy-production.up.railway.app/docs](https://plant-disease-backend.onrender.com/docs)
 
 ## Features
 
@@ -45,7 +45,7 @@ The model can detect diseases in 14 different plant species, including Apple, Bl
 
 ### Clone the repository
 ```bash
-git clone https://github.com/yourusername/PlantDiseaseDetectionApp.git
+git clone https://github.com/Samenergy/PlantDiseaseDetectionApp.git
 cd PlantDiseaseDetectionApp
 ```
 
@@ -110,7 +110,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- [PlantVillage Dataset](https://github.com/spMohanty/PlantVillage-Dataset)
+- [PlantVillage Dataset](https://www.kaggle.com/code/imtkaggleteam/plant-diseases-detection-pytorch/input)
 - TensorFlow and Keras for the ML framework
 - FastAPI for the backend framework
 - React team for the frontend framework
