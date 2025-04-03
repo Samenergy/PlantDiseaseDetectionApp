@@ -73,7 +73,7 @@ npm run dev
 
 ## Testing
 
-For testing the application without collecting your own plant images, you can use the sample images provided:
+For testing the application without collecting your own plant images, you can use the sample images and zip file for retraining provided:
 
 ```bash
 cd Backend/Data
