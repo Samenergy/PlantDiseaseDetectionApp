@@ -7,6 +7,12 @@
 
 LeafSense is an advanced plant disease detection application using deep learning to identify plant diseases from leaf images. It helps farmers, gardeners, and agricultural professionals detect plant diseases early and prevent crop losses.
 
+## 🔗 Links
+
+- **Frontend**: [https://leaf-sense.vercel.app](https://leaf-sense.vercel.app)
+- **Backend API**: [https://plant-disease-backend.onrender.com](https://plant-disease-backend.onrender.com)
+- **API Documentation**: [https://plant-disease-backend.onrender.com/docs](https://plant-disease-backend.onrender.com/docs)
+
 ## Features
 
 - **Real-time Disease Detection**: Upload leaf images to instantly identify diseases
@@ -64,6 +70,16 @@ cd Frontend
 npm install
 npm run dev
 ```
+
+## Testing
+
+For testing the application without collecting your own plant images, you can use the sample images provided:
+
+```bash
+cd Backend/Data
+```
+
+This directory contains sample leaf images organized by plant type and disease condition that you can use to test the disease detection functionality.
 
 ## Usage
 
