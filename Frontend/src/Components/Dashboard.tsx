@@ -50,7 +50,7 @@ const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    const ws = new WebSocket(`ws://${API_BASE_URL.split("://")[1]}/ws/retrain-progress`);
+    const ws = new WebSocket(`wss://appdeploy-production.up.railway.app/ws/retrain-progress`);
     wsRef.current = ws;
 
     ws.onopen = () => console.log("WebSocket connected");
