@@ -113,4 +113,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [PlantVillage Dataset](https://www.kaggle.com/code/imtkaggleteam/plant-diseases-detection-pytorch/input)
 - TensorFlow and Keras for the ML framework
 - FastAPI for the backend framework
-- React team for the frontend framework
+- React Vite for the frontend framework
